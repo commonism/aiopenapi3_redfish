@@ -26,7 +26,7 @@ class Chassis(Entity):
     pass
 
 
-class EventService(Entity):
+class EventService(Entity, Actions):
     pass
 
 

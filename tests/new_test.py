@@ -1,3 +1,4 @@
+import asyncio
 from pathlib import Path
 import re
 import json
@@ -50,6 +51,11 @@ def non_validating_https(*args, **kwargs) -> httpx.AsyncClient:
     return httpx.AsyncClient(*args, verify=False, timeout=timeout, **kwargs)
 
 
+def extended_timeout(*args, **kwargs) -> httpx.AsyncClient:
+    timeout = httpx.Timeout(timeout=60)
+    return httpx.AsyncClient(*args, verify=False, timeout=timeout, **kwargs)
+
+
 @pytest_asyncio.fixture
 async def client(description_documents, target, auth):
     username, password = auth
@@ -63,19 +69,52 @@ async def client(description_documents, target, auth):
             ExposeResponseHeaders(),
             OemDocument(t),
             Reduce(
+                #
+                # ServiceRoot
+                #
                 ("/redfish/v1", ["get"]),
+                #
+                # AccountService
+                #
                 ("/redfish/v1/AccountService", ["get"]),
                 ("/redfish/v1/AccountService/Accounts", ["get"]),
                 ("/redfish/v1/AccountService/Accounts/{ManagerAccountId}", ["get", "patch"]),
+                #
+                # CertificateService
+                #
                 ("/redfish/v1/CertificateService", ["get"]),
                 (re.compile(r"^/redfish/v1/CertificateService/Actions/.*$"), ["post"]),
+                #
+                # EventService
+                #
+                ("/redfish/v1/EventService", ["get", "patch"]),
+                ("/redfish/v1/EventService/Subscriptions", ["get", "post"]),
+                ("/redfish/v1/EventService/Subscriptions/{EventDestinationId}", ["delete", "get", "patch"]),
+                ("/redfish/v1/EventService/Actions/EventService.SubmitTestEvent", ["post"]),
+                (
+                    "/redfish/v1/EventService/Subscriptions/{EventDestinationId}/Actions/EventDestination.ResumeSubscription",
+                    ["post"],
+                ),
+                ("/redfish/v1/SSE", ["get"]),
+                #
+                # Managers
+                #
                 ("/redfish/v1/Managers", ["get"]),
                 ("/redfish/v1/Managers/{ManagerId}", ["get"]),
                 (re.compile(r"^/redfish/v1/Managers/{ManagerId}/Actions/.*$"), ["post"]),
+                #
+                # SessionService
+                #
                 ("/redfish/v1/SessionService", ["get"]),
                 ("/redfish/v1/SessionService/Sessions", ["get", "post"]),
                 ("/redfish/v1/SessionService/Sessions/{SessionId}", ["get", "delete"]),
+                #
+                # TelemetryService
+                #
                 ("/redfish/v1/TelemetryService", ["get"]),
+                #
+                # UpdateService
+                #
                 ("/redfish/v1/UpdateService", ["get"]),
             ),
         ],
@@ -150,12 +189,52 @@ async def test_Action_CertificateService_GenerateCSR(client: aiopenapi3_redfish.
         )
     )
 
-    def extended_timeout(*args, **kwargs) -> httpx.AsyncClient:
-        timeout = httpx.Timeout(timeout=60)
-        return httpx.AsyncClient(*args, verify=False, timeout=timeout, **kwargs)
-
     client.api._session_factory = extended_timeout
 
     r = await req(data=data.model_dump(exclude_unset=True, by_alias=True))
 
     client.api._session_factory = None
+
+
+@pytest.mark.asyncio
+async def test_EventService_SSE(client, capsys):
+    client.api._session_factory = extended_timeout
+
+    async def sendtestevent():
+        for i in range(3):
+            action = client.EventService["#EventService.SubmitTestEvent"]
+            req = action._client.api.createRequest((action._v, "post"))
+            data = req.data.get_type().model_validate(dict(EventType="Alert", MessageId="AMP0300"))
+            r = await req(data=data.model_dump(exclude_unset=True, by_alias=True))
+            asyncio.sleep(5)
+
+    task = asyncio.create_task(sendtestevent())
+
+    async def process():
+        data = b""
+        while True:
+            data += yield
+            lines = data.split(b"\n")
+            if lines[-1] == b"":
+                data = b""
+            else:
+                data = lines[-1]
+                lines = lines[:-1]
+            for l in lines:
+                with capsys.disabled():
+                    print(l)
+
+    p = process()
+    await p.asend(None)
+
+    req = client.api._[(client.EventService.ServerSentEventUri, "get")]
+    headers, schema_, session, result = await req.stream()
+    l = 0
+    async for i in result.aiter_bytes():
+        await p.asend(i)
+        l += 1
+        if l > 2:
+            break
+    await task
+
+    return None

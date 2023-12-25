@@ -11,7 +11,7 @@ from aiopenapi3.loader import ChainLoader
 
 from aiopenapi3_redfish.oem import Oem
 
-from .service import AccountService, UpdateService, TelemetryService, CertificateService, SessionService
+from .service import AccountService, UpdateService, TelemetryService, CertificateService, SessionService, EventService
 from .manager import Managers
 
 if typing.TYPE_CHECKING:
@@ -55,6 +55,7 @@ class Client:
         self._serviceroot = await self.get("/redfish/v1")
         self._accountservice = await AccountService._init(self, self._serviceroot.AccountService.odata_id_)
         self._certificateservice = await CertificateService._init(self, self._serviceroot.CertificateService.odata_id_)
+        self._eventservice = await EventService._init(self, self._serviceroot.EventService.odata_id_)
         self._updateservice = await UpdateService._init(self, self._serviceroot.UpdateService.odata_id_)
         self._telemetryservice = await TelemetryService._init(self, self._serviceroot.TelemetryService.odata_id_)
         self._managers = await Managers._init(self, self._serviceroot.Managers.odata_id_)
@@ -110,6 +111,10 @@ class Client:
     @property
     def CertificateService(self) -> "CertificateService":
         return self._certificateservice
+
+    @property
+    def EventService(self) -> "EventService":
+        return self._eventservice
 
     @property
     def Manager(self) -> "Manager":

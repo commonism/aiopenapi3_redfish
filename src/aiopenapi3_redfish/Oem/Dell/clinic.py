@@ -48,6 +48,37 @@ class Document(aiopenapi3.plugin.Document):
                     del n[op]["operationId"]
                     del n[op]["parameters"][1]
 
+            """
+            SSE url
+            """
+            import yaml
+            import io
+
+            data = yaml.safe_load(
+                io.StringIO(
+                    """
+paths:
+  /redfish/v1/SSE:
+    get:
+      description: !
+      responses:
+        '200':
+          content:
+            text/event-stream:
+              schema:
+                {}
+          description: Server Sent Event Stream
+      security:
+      - X-Auth: []
+      - basicAuth: []
+      summary: EventService SSE
+      tags:
+      - EventService
+"""
+                )
+            )
+            ctx.document["paths"].update(data["paths"])
+
         if ctx.url.path == "/redfish/v1/Schemas/Resource.yaml":
             for name, value in ctx.document["components"]["schemas"].items():
                 if "anyOf" not in value:
