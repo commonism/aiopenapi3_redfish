@@ -1,0 +1,19 @@
+[project]
+name = "aiopenapi3_redfish"
+version = "0.0.1"
+description = "DMTF Redfish Client build upon the OpenAPI description documents"
+authors = [
+    {name = "Markus Kötter", email = "commonism@users.noreply.github.com"},
+]
+dependencies = []
+requires-python = ">=3.8"
+readme = "README.md"
+license = {text = "BSD-3-Clause"}
+
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+
+[tool.pdm]
+package-type = "library"
