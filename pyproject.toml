@@ -5,7 +5,10 @@ description = "DMTF Redfish Client build upon the OpenAPI description documents"
 authors = [
     {name = "Markus Kötter", email = "commonism@users.noreply.github.com"},
 ]
-dependencies = []
+dependencies = [
+    "aiopenapi3>=0.5.0",
+    "routes>=2.5.1",
+]
 requires-python = ">=3.8"
 readme = "README.md"
 license = {text = "BSD-3-Clause"}
@@ -17,3 +20,16 @@ build-backend = "setuptools.build_meta"
 
 [tool.pdm]
 package-type = "library"
+
+[tool.pdm.dev-dependencies]
+dev = [
+    "pytest-asyncio>=0.23.2",
+    "pytest>=7.4.3",
+    "pytest-httpx>=0.22.0",
+]
+
+[[tool.pdm.autoexport]]
+filename = "requirements.txt"
+format = "requirements"
+without-hashes = true
+groups = ["default"]
