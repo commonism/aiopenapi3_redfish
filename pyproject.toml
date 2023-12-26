@@ -8,6 +8,7 @@ authors = [
 dependencies = [
     "aiopenapi3>=0.5.0",
     "routes>=2.5.1",
+    "jq>=1.6.0",
 ]
 requires-python = ">=3.8"
 readme = "README.md"

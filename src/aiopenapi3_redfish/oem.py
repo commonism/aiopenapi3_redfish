@@ -1,5 +1,9 @@
+import collections
+
 import routes
 import yarl
+
+from .odata import ResourceType
 
 
 def Routes(*patterns):
@@ -12,19 +16,46 @@ def Routes(*patterns):
     return decorator
 
 
+def Context(base, path):
+    def decorator(f):
+        p = "_ctx"
+        setattr(f, p, (m := getattr(f, p, set())))
+        m.add((base, path))
+        return f
+
+    return decorator
+
+
 class Oem:
+    actions: []
+    context: []
+
     def __init__(self):
-        self.routes = routes.Mapper()
-
-    def connect(self, routes):
-        for i in routes:
+        self._action_routes = routes.Mapper()
+        self._context_map = collections.defaultdict(lambda: dict())
+        for i in self.actions:
+            m: str
             for m in i._match:
-                self.routes.connect(m.replace("#", "%23"), cls=i)
+                self._action_routes.connect(m, cls=i)
 
-    def routeOf(self, url: yarl.URL):
-        assert isinstance(url, yarl.URL), f"{url} {type(url)}"
-        r = self.routes.routematch(str(url.with_fragment(None)))
+        for i in self.context:
+            for base, path in i._ctx:
+                self._context_map[base][path] = i
+
+    def classFromResourceType(self, odata_type_: str, path: str):
+        t = ResourceType(odata_type_)
+        for v in t.versioned, t.unversioned:
+            try:
+                r = self._context_map[v][path]
+                return r
+            except KeyError:
+                continue
+        return None
+
+    def classFromRoute(self, url: str):
+        assert isinstance(url, str), f"{url} {type(url)}"
+        r = self._action_routes.routematch(url)
         if r is None:
-            raise KeyError(url)
+            return None
         parameters, route, *_ = r
-        return parameters, route.routepath
+        return parameters["cls"]

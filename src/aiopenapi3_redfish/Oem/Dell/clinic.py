@@ -79,6 +79,9 @@ paths:
             )
             ctx.document["paths"].update(data["paths"])
 
+            # inject DellOem in components to use
+        #            ctx.document["components"]["schemas"]["DellOem_DellOemLinks"] = {"$ref":"DellOem.v1_3_0.yaml#/components/schemas/DellOem_v1_3_0_DellOemLinks"}
+
         if ctx.url.path == "/redfish/v1/Schemas/Resource.yaml":
             for name, value in ctx.document["components"]["schemas"].items():
                 if "anyOf" not in value:
@@ -144,7 +147,10 @@ paths:
 
         return ctx
 
-        return ctx
+
+class Init(aiopenapi3.plugin.Init):
+    def schemas(self, ctx: "Init.Context") -> "Init.Context":
+        pass
 
 
 class RoutingContext:

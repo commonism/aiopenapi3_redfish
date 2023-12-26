@@ -15,7 +15,7 @@ from aiopenapi3.loader import RedirectLoader
 
 from aiopenapi3_redfish.client import Config, Client
 from aiopenapi3_redfish.clinic import RedfishDocument, PayloadAnnotations, ExposeResponseHeaders
-from aiopenapi3_redfish.Oem.Dell.clinic import Document as OemDocument
+from aiopenapi3_redfish.Oem.Dell.clinic import Document as OemDocument, Init as OemInit
 from aiopenapi3_redfish.Oem.Dell.oem import DellOem
 
 import aiopenapi3_redfish
@@ -68,6 +68,7 @@ async def client(description_documents, target, auth):
             PayloadAnnotations(),
             ExposeResponseHeaders(),
             OemDocument(t),
+            #            OemInit(),
             Reduce(
                 #
                 # ServiceRoot
@@ -103,6 +104,10 @@ async def client(description_documents, target, auth):
                 ("/redfish/v1/Managers/{ManagerId}", ["get"]),
                 (re.compile(r"^/redfish/v1/Managers/{ManagerId}/Actions/.*$"), ["post"]),
                 #
+                # DellAttributes
+                #
+                ("/redfish/v1/Managers/{ManagerId}/Oem/Dell/DellAttributes/{DellAttributesId}", ["get", "patch"]),
+                #
                 # SessionService
                 #
                 ("/redfish/v1/SessionService", ["get"]),
@@ -127,7 +132,7 @@ async def client(description_documents, target, auth):
         session_factory=non_validating_https,
     )
     client = Client(config)
-    client._oem.connect(DellOem)
+    client._oem = DellOem()
     await client.ainit()
     return client
 
@@ -237,4 +242,42 @@ async def test_EventService_SSE(client, capsys):
             break
     await task
 
+    return None
+
+
+@pytest.mark.asyncio
+async def test_DellAttributes(client, capsys):
+    oem = client.Manager.Links.Oem
+    obj = oem
+    assert obj
+    obj = oem.Dell
+    assert obj
+    obj = oem.Dell.DellAttributes
+    async for i in oem.Dell.DellAttributes.list():
+        print(i)
+    return None
+
+
+def test_DellAttributesLocal():
+    from aiopenapi3 import OpenAPI
+    import yarl
+    from aiopenapi3_redfish.Oem.Dell.oem import DellAttributes
+
+    api = OpenAPI.cache_load(Path("/tmp/test_new.pickle"))
+    data = json.loads((Path(__file__).parent / "data" / "iDRAC.Embedded.1.json").read_text())
+    DA = (
+        api._documents[yarl.URL("/redfish/v1/Schemas/DellAttributes.v1_0_0.yaml")]
+        .components.schemas["DellAttributes_v1_0_0_DellAttributes"]
+        .get_type()
+    )
+
+    obj = DellAttributes(None, DA.model_validate(data))
+    root = obj.filter('.Users.[] | select(.UserName == "root")').first()
+    assert root["Privilege"] == DellAttributes.Permissions(511).value
+
+    enabled = obj.filter('.Users.[] | select(.Enable == "Enabled")').all()
+    assert len(enabled) == 1
+
+    ntp = obj.filter('.NTPConfigGroup."1"')
+    wanted = {"NTP1": "ntp.example.org", "NTPEnable": "Enabled", "NTPMaxDist": 16}
     return None

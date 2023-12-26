@@ -1,13 +1,16 @@
 from typing import List
-from .base import Entity, Collection, Actions
+
+import yarl
+
+from .base import ResourceRoot, Collection, Actions
 
 
-class Managers(Entity):
-    class Manager_(Entity, Actions):
+class Managers(ResourceRoot):
+    class Manager_(ResourceRoot, Actions):
         pass
 
     def __init__(self, client: "Client", odata_id_: str):
-        Entity.__init__(self, client, odata_id_)
+        ResourceRoot.__init__(self, client, odata_id_)
         self.Managers: List["Managers.Manager_"] = list()
 
     @classmethod

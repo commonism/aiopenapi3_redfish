@@ -1,14 +1,14 @@
 import copy
 
-from .base import Entity, Collection, Actions
+from .base import ResourceRoot, Collection, Actions
 
 
-class AccountService(Entity):
-    class ManagerAccount(Entity):
+class AccountService(ResourceRoot):
+    class ManagerAccount(ResourceRoot):
         pass
 
     def __init__(self, client: "Client", odata_id_: str):
-        Entity.__init__(self, client, odata_id_)
+        ResourceRoot.__init__(self, client, odata_id_)
         self.Accounts: "AccountService._Accounts" = None
 
     @classmethod
@@ -18,32 +18,32 @@ class AccountService(Entity):
         return obj
 
 
-class CertificateService(Entity, Actions):
+class CertificateService(ResourceRoot, Actions):
     pass
 
 
-class Chassis(Entity):
+class Chassis(ResourceRoot):
     pass
 
 
-class EventService(Entity, Actions):
+class EventService(ResourceRoot, Actions):
     pass
 
 
-class Fabrics(Entity):
+class Fabrics(ResourceRoot):
     pass
 
 
-class JobService(Entity):
+class JobService(ResourceRoot):
     pass
 
 
-class LicenseService(Entity):
+class LicenseService(ResourceRoot):
     pass
 
 
-class SessionService(Entity):
-    class Session(Entity):
+class SessionService(ResourceRoot):
+    class Session(ResourceRoot):
         pass
 
     async def createSession(self):
@@ -73,17 +73,17 @@ class SessionService(Entity):
         return obj
 
 
-class Systems(Entity):
+class Systems(ResourceRoot):
     pass
 
 
-class TaskService(Entity, Actions):
+class TaskService(ResourceRoot, Actions):
     pass
 
 
-class TelemetryService(Entity, Actions):
+class TelemetryService(ResourceRoot, Actions):
     pass
 
 
-class UpdateService(Entity, Actions):
+class UpdateService(ResourceRoot, Actions):
     pass

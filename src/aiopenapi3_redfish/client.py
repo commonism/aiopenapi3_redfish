@@ -49,7 +49,7 @@ class Client:
         for i in self.api.paths.paths.keys():
             self.routes.connect(i)
 
-        self._oem = Oem()
+        self._oem: Oem = None
 
     async def ainit(self):
         self._serviceroot = await self.get("/redfish/v1")
