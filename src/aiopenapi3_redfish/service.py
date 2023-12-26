@@ -77,8 +77,19 @@ class Systems(ResourceRoot):
     pass
 
 
-class TaskService(ResourceRoot, Actions):
-    pass
+class TaskService(ResourceRoot):
+    class Tasks_(ResourceRoot):
+        pass
+
+    def __init__(self, client: "Client", odata_id_: str):
+        ResourceRoot.__init__(self, client, odata_id_)
+        self.Tasks: "TaskService.Tasks_" = None
+
+    @classmethod
+    async def _init(cls, client: "Client", odata_id_: str):
+        obj = await super()._init(client, odata_id_)
+        obj.Tasks = await Collection[TaskService.Tasks_]()._init(client, obj._v.Tasks.odata_id_)
+        return obj
 
 
 class TelemetryService(ResourceRoot, Actions):

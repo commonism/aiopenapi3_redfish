@@ -1,5 +1,6 @@
 from pathlib import Path
 import copy
+import json
 
 import yarl
 
@@ -151,6 +152,48 @@ paths:
 class Init(aiopenapi3.plugin.Init):
     def schemas(self, ctx: "Init.Context") -> "Init.Context":
         pass
+
+
+class ExportSystemConfiguration(aiopenapi3.plugin.Message):
+    def received(self, ctx: "Message.Context") -> "Message.Context":
+        import json
+
+        if ctx.request.path not in (
+            "/redfish/v1/Managers/{ManagerId}/Actions/Oem/EID_674_Manager.ExportSystemConfiguration",
+            "/redfish/v1/Managers/{ManagerId}/Actions/Oem/EID_674_Manager.ImportSystemConfiguration",
+        ):
+            return ctx
+
+        if ctx.request.method != "post":
+            return ctx
+
+        l = ctx.headers["Location"]
+        _, _, jobid = l.rpartition("/")
+        ctx.received = json.dumps({"@odata.id": "", "@odata.type": "#x.x", "Id": jobid, "Name": ""})
+
+
+class Task(aiopenapi3.plugin.Message):
+    def received(self, ctx: "Message.Context") -> "Message.Context":
+        if ctx.request.path != "/redfish/v1/TaskService/Tasks/{TaskId}":
+            return ctx
+
+        if ctx.request.method != "get":
+            return ctx
+
+        if ctx.status_code != "200":
+            ctx.status_code = "200"
+        else:
+            ctx.received = json.dumps(
+                {
+                    "@odata.id": "",
+                    "@odata.type": "#Task._.Task",
+                    "Id": ctx.request.vars.parameters["TaskId"],
+                    "Name": "",
+                    "Messages": [{"MessageId": "", "Message": ctx.received.decode("utf-8")}],
+                }
+            )
+            ctx.content_type = "application/json"
+        return ctx
 
 
 class RoutingContext:

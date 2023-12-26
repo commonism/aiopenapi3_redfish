@@ -15,7 +15,12 @@ from aiopenapi3.loader import RedirectLoader
 
 from aiopenapi3_redfish.client import Config, Client
 from aiopenapi3_redfish.clinic import RedfishDocument, PayloadAnnotations, ExposeResponseHeaders
-from aiopenapi3_redfish.Oem.Dell.clinic import Document as OemDocument, Init as OemInit
+from aiopenapi3_redfish.Oem.Dell.clinic import (
+    Document as OemDocument,
+    Init as OemInit,
+    Task as OemTask,
+    ExportSystemConfiguration as OemExportSystemConfiguration,
+)
 from aiopenapi3_redfish.Oem.Dell.oem import DellOem
 
 import aiopenapi3_redfish
@@ -103,6 +108,7 @@ async def client(description_documents, target, auth):
                 ("/redfish/v1/Managers", ["get"]),
                 ("/redfish/v1/Managers/{ManagerId}", ["get"]),
                 (re.compile(r"^/redfish/v1/Managers/{ManagerId}/Actions/.*$"), ["post"]),
+                ("/redfish/v1/Managers/{ManagerId}/Actions/Oem/EID_674_Manager.ExportSystemConfiguration", ["post"]),
                 #
                 # DellAttributes
                 #
@@ -114,6 +120,12 @@ async def client(description_documents, target, auth):
                 ("/redfish/v1/SessionService/Sessions", ["get", "post"]),
                 ("/redfish/v1/SessionService/Sessions/{SessionId}", ["get", "delete"]),
                 #
+                # TaskService
+                #
+                ("/redfish/v1/TaskService", ["get"]),
+                ("/redfish/v1/TaskService/Tasks", ["get"]),
+                ("/redfish/v1/TaskService/Tasks/{TaskId}", ["get", "delete"]),
+                #
                 # TelemetryService
                 #
                 ("/redfish/v1/TelemetryService", ["get"]),
@@ -122,6 +134,8 @@ async def client(description_documents, target, auth):
                 #
                 ("/redfish/v1/UpdateService", ["get"]),
             ),
+            OemTask(),
+            OemExportSystemConfiguration(),
         ],
         locations=[
             RedirectLoader((v := description_documents / "dell" / "iDRAC_6.10.00.00_A00")),
@@ -202,13 +216,47 @@ async def test_Action_CertificateService_GenerateCSR(client: aiopenapi3_redfish.
 
 
 @pytest.mark.asyncio
+async def test_Action_EID_674_Manager_ExportSystemConfiguration(client: aiopenapi3_redfish.Client):
+    action = client.Manager.Oem["#OemManager.ExportSystemConfiguration"]
+    url = action._v.replace("iDRAC.Embedded.1", "{ManagerId}")
+    req = action._client.api.createRequest((url, "post"))
+    t = req.data.get_type()
+    tShareParameters = t.model_fields["ShareParameters"].annotation
+    data = t(
+        ExportFormat="XML",
+        ExportUse="Clone",
+        IncludeInExport=[],
+        ShareParameters=tShareParameters(FileName="test", Target=["ALL"]),
+    )
+
+    try:
+        r = await req(parameters={"ManagerId": "iDRAC.Embedded.1"}, data=data.model_dump(exclude_unset=True))
+    except aiopenapi3.ResponseSchemaError as e:
+        return
+
+    ## Poll JobId
+    while True:
+        r = await client.TaskService.Tasks.index(r.Id)
+        if r.TaskState == "Running" and r.TaskStatus == "OK":
+            await asyncio.sleep(7)
+            continue
+        break
+
+    ## last iteration … fetched Job
+    ## Task plugin mangled the message to carry the payload in JSON
+    payload = r.Messages[0].root.Message
+    assert payload.startswith("<SystemConfiguration")
+
+
+@pytest.mark.asyncio
 async def test_EventService_SSE(client, capsys):
     client.api._session_factory = extended_timeout
 
     async def sendtestevent():
         for i in range(3):
             action = client.EventService["#EventService.SubmitTestEvent"]
-            req = action._client.api.createRequest((action._v, "post"))
+            url = action._v.replace("iDRAC.Embedded.1", "{ManagerId}")
+            req = action._client.api.createRequest((url, "post"))
             data = req.data.get_type().model_validate(dict(EventType="Alert", MessageId="AMP0300"))
             r = await req(data=data.model_dump(exclude_unset=True, by_alias=True))
             asyncio.sleep(5)

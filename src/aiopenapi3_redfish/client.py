@@ -11,7 +11,15 @@ from aiopenapi3.loader import ChainLoader
 
 from aiopenapi3_redfish.oem import Oem
 
-from .service import AccountService, UpdateService, TelemetryService, CertificateService, SessionService, EventService
+from .service import (
+    AccountService,
+    UpdateService,
+    TelemetryService,
+    CertificateService,
+    SessionService,
+    EventService,
+    TaskService,
+)
 from .manager import Managers
 
 if typing.TYPE_CHECKING:
@@ -61,6 +69,7 @@ class Client:
         self._managers = await Managers._init(self, self._serviceroot.Managers.odata_id_)
         self._manager = await self._managers.Managers.first()
         self._sessionservice = await SessionService._init(self, self._serviceroot.SessionService.odata_id_)
+        self._taskservice = await TaskService._init(self, self._serviceroot.Tasks.odata_id_)
 
     @classmethod
     def createAPI(cls, config):
@@ -123,6 +132,10 @@ class Client:
     @property
     def SessionService(self) -> "SessionService":
         return self._sessionservice
+
+    @property
+    def TaskService(self) -> "TaskService":
+        return self._taskservice
 
     @property
     def TelemetryService(self) -> "UpdateService":
