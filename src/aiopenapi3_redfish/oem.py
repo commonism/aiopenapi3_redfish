@@ -6,9 +6,9 @@ import yarl
 from .odata import ResourceType
 
 
-def Routes(*patterns):
+def Detour(*patterns):
     def decorator(f):
-        p = "_match"
+        p = "_detour"
         setattr(f, p, (m := getattr(f, p, set())))
         m.update(frozenset(patterns))
         return f
@@ -16,31 +16,31 @@ def Routes(*patterns):
     return decorator
 
 
-def Context(base, path):
-    def decorator(f):
-        p = "_ctx"
-        setattr(f, p, (m := getattr(f, p, set())))
-        m.add((base, path))
-        return f
-
-    return decorator
+def splitTypeDetour(type_):
+    try:
+        i = type_.index("/")
+        base = type_[:i]
+        path = type_[i:]
+    except ValueError:
+        base = type_
+        path = "/"
+    return base, path
 
 
 class Oem:
-    actions: []
-    context: []
+    detour: []
 
     def __init__(self):
         self._action_routes = routes.Mapper()
         self._context_map = collections.defaultdict(lambda: dict())
-        for i in self.actions:
+        for i in self.detour:
             m: str
-            for m in i._match:
-                self._action_routes.connect(m, cls=i)
-
-        for i in self.context:
-            for base, path in i._ctx:
-                self._context_map[base][path] = i
+            for m in i._detour:
+                if m[0] == "#":
+                    base, path = splitTypeDetour(m)
+                    self._context_map[base][path] = i
+                else:
+                    self._action_routes.connect(m, cls=i)
 
     def classFromResourceType(self, odata_type_: str, path: str):
         t = ResourceType(odata_type_)

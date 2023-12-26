@@ -128,7 +128,7 @@ class Actions:
     def Oem(self) -> "Actions":
         r = dict()
         for k, v in self._v.Actions.Oem.model_extra.items():
-            parameters, url = self._client._oem.classFromRoute(v["target"])
-            cls = parameters["cls"](self._client, url)
+            type_ = self._client._oem.classFromRoute(v["target"])
+            cls = type_(self._client, v["target"])
             r[k] = cls
         return r

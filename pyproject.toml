@@ -34,3 +34,13 @@ filename = "requirements.txt"
 format = "requirements"
 without-hashes = true
 groups = ["default"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "strict"
+
+log_cli = "yes"
+log_cli_level = "DEBUG"
+log_cli_format = "%(asctime)s [%(levelname)8s] %(name)-12.12s %(message)s (%(filename)s:%(lineno)s)"
+log_cli_date_format = "%Y-%m-%d %H:%M:%S"
+
+addopts = "--ignore-glob 'tests/my_*.py'"

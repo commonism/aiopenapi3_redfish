@@ -5,15 +5,15 @@ import jq
 import yarl
 
 from aiopenapi3_redfish.base import ResourceRoot, ResourceItem, Actions, Collection
-from aiopenapi3_redfish.oem import Oem, Routes, Context
+from aiopenapi3_redfish.oem import Oem, Detour
 
 
-@Context("#Manager..Manager", "/Links/Oem")
+@Detour("#Manager..Manager/Links/Oem")
 class ManagerLinksOem(ResourceItem):
     pass
 
 
-@Context("#DellOem..DellOemLinks", "/")
+@Detour("#DellOem..DellOemLinks")
 class DellOemLinks(ResourceItem):
     @property
     def DellAttributes(self):
@@ -28,8 +28,10 @@ class DellOemLinks(ResourceItem):
         return c
 
 
-@Context("#DellAttributes.v1_0_0.DellAttributes", "/")
-@Routes("/redfish/v1/Managers/{ManagerId}/Oem/Dell/DellAttributes/{DellAttributesId}")
+@Detour(
+    "#DellAttributes.v1_0_0.DellAttributes",
+    "/redfish/v1/Managers/{ManagerId}/Oem/Dell/DellAttributes/{DellAttributesId}",
+)
 class DellAttributes(ResourceRoot):
     class Permissions(enum.IntFlag):
         """
@@ -63,7 +65,7 @@ class DellAttributes(ResourceRoot):
         return jq.compile(jq_).input(self.list())
 
 
-@Routes(
+@Detour(
     "/redfish/v1/Managers/{ManagerId}/Actions/Oem/EID_674_Manager.ExportSystemConfiguration",
     "/redfish/v1/Managers/{ManagerId}/Actions/Oem/EID_674_Manager.ImportSystemConfiguration",
     "/redfish/v1/Managers/{ManagerId}/Actions/Oem/EID_674_Manager.ImportSystemConfigurationPreview",
@@ -72,17 +74,17 @@ class EID_674(ResourceRoot, Actions):
     pass
 
 
-@Routes("/redfish/v1/UpdateService/Actions/Oem/DellUpdateService.Install")
+@Detour("/redfish/v1/UpdateService/Actions/Oem/DellUpdateService.Install")
 class DellUpdateService(ResourceRoot, Actions):
     pass
 
 
-@Routes("/redfish/v1/UpdateService/Actions/Oem/DellTelemetryService.SubmitMetricValue")
+@Detour("/redfish/v1/UpdateService/Actions/Oem/DellTelemetryService.SubmitMetricValue")
 class DellTelemetryService(ResourceRoot, Actions):
     pass
 
 
-@Routes(
+@Detour(
     "/redfish/v1/Managers/{ManagerId}/Actions/Oem/DellManager.ResetToDefaults",
     "/redfish/v1/Managers/{ManagerId}/Actions/Oem/DellManager.SetCustomDefaults",
 )
@@ -91,5 +93,12 @@ class DellManager(ResourceRoot, Actions):
 
 
 class DellOem(Oem):
-    actions = [DellAttributes, EID_674, DellUpdateService, DellTelemetryService, DellManager]
-    context = [ManagerLinksOem, DellOemLinks, DellAttributes]
+    detour = [
+        DellAttributes,
+        EID_674,
+        DellUpdateService,
+        DellTelemetryService,
+        DellManager,
+        ManagerLinksOem,
+        DellOemLinks,
+    ]
