@@ -70,7 +70,7 @@ class DellAttributes(ResourceRoot):
     "/redfish/v1/Managers/{ManagerId}/Actions/Oem/EID_674_Manager.ImportSystemConfiguration",
     "/redfish/v1/Managers/{ManagerId}/Actions/Oem/EID_674_Manager.ImportSystemConfigurationPreview",
 )
-class EID_674(ResourceRoot, Actions):
+class EID_674(Actions.Action):
     pass
 
 
@@ -88,7 +88,7 @@ class DellTelemetryService(ResourceRoot, Actions):
     "/redfish/v1/Managers/{ManagerId}/Actions/Oem/DellManager.ResetToDefaults",
     "/redfish/v1/Managers/{ManagerId}/Actions/Oem/DellManager.SetCustomDefaults",
 )
-class DellManager(ResourceRoot, Actions):
+class DellManager(Actions.Action):
     pass
 
 

@@ -29,7 +29,7 @@ class Document(aiopenapi3.plugin.Document):
                             s["$ref"] = "/redfish/v1/Schemas/Task.v1_6_0.yaml#/components/schemas/Task_v1_6_0_Task"
 
             """
-            set the PathItems security to basicAuth instead of X-Auth AND basicAuth
+            set the PathItems security to X-Auth OR basicAuth instead of X-Auth AND basicAuth
             """
             for k, v in ctx.document["paths"].items():
                 for o, op in v.items():
@@ -170,6 +170,7 @@ class ExportSystemConfiguration(aiopenapi3.plugin.Message):
         l = ctx.headers["Location"]
         _, _, jobid = l.rpartition("/")
         ctx.received = json.dumps({"@odata.id": "", "@odata.type": "#x.x", "Id": jobid, "Name": ""})
+        return ctx
 
 
 class Task(aiopenapi3.plugin.Message):

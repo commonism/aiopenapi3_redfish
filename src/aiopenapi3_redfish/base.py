@@ -1,5 +1,5 @@
 import typing
-from typing import Dict
+from typing import Dict, Optional
 
 import yarl
 
@@ -51,6 +51,12 @@ class ResourceRoot(ResourceItem):
     def __init__(self, client: "Client", value: "BaseModel"):
         self._client: "Client" = client
         super().__init__(self, yarl.URL("/"), value)
+
+    async def get(self, *args, **kwargs):
+        return await self._client.patch(self._v.odata_id_, *args, **kwargs)
+
+    async def patch(self, *args, **kwargs):
+        return await self._client.patch(self._v.odata_id_, *args, **kwargs)
 
     async def delete(self):
         return await self._client.delete(self._v.odata_id_)
@@ -108,27 +114,47 @@ class Collection(typing.Generic[T], ResourceRoot):
 
 
 class Actions:
-    class Action(ResourceRoot):
-        def __init__(self, client: "Client", odata_id_: str, title, fields):
-            super().__init__(client, odata_id_)
+    class Action:
+        def __init__(self, client: "Client", url: str, parameters: Dict[str, str], odata_id_: str, title, fields):
+            self._client = client
+            self.odata_id_ = odata_id_
             self.title = title
             self.fields: Dict[str, str] = fields
+            self.parameters = parameters
+            self.url = url
+            self.req = self._client.api.createRequest((self.url, "post"))
 
-        async def __call__(self, *args, **kwargs):
-            req = self._client.api.createRequest((self.odata_id_, "post"))
-            r = await req(*args, **kwargs)
+        @property
+        def data(self):
+            return self.req.data.get_type()
+
+        async def __call__(self, *args, parameters: Optional[Dict[str, str]] = None, **kwargs):
+            if parameters:
+                parameters.update(self.parameters)
+            else:
+                parameters = self.parameters
+            r = await self.req(*args, parameters=parameters, **kwargs)
             return r
 
     def __getitem__(self, key):
         name = aiopenapi3.model.Model.nameof(key)
         v = getattr(self._v.Actions, name)
-        return Actions.Action(self._client, v.target, v.title, v.model_extra)
+        return self._createAction(v.target, v.title, v.model_extra)
+
+    def _createAction(self, target, title, fields):
+        parameters, url = self._client.routeOf(target)
+        type_ = self._client._oem.classFromRoute(target) or Actions.Action
+        r = type_(self._client, url, parameters, target, title, fields)
+        return r
 
     @property
     def Oem(self) -> "Actions":
         r = dict()
         for k, v in self._v.Actions.Oem.model_extra.items():
-            type_ = self._client._oem.classFromRoute(v["target"])
-            cls = type_(self._client, v["target"])
+            try:
+                cls = self._createAction(v["target"], v.get("title", ""), v)
+            except KeyError:
+                print(f"missing {v['target']}")
+                continue
             r[k] = cls
         return r

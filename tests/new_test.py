@@ -193,8 +193,7 @@ async def test_SessionService(client):
 @pytest.mark.asyncio
 async def test_Action_CertificateService_GenerateCSR(client: aiopenapi3_redfish.Client):
     action = client.CertificateService["#CertificateService.GenerateCSR"]
-    req = action._client.api.createRequest((action._v, "post"))
-    data = req.data.get_type().model_validate(
+    data = action.data.model_validate(
         dict(
             CertificateCollection={
                 "@odata.id": "/redfish/v1/Managers/iDRAC.Embedded.1/NetworkProtocol/HTTPS/Certificates"
@@ -210,7 +209,7 @@ async def test_Action_CertificateService_GenerateCSR(client: aiopenapi3_redfish.
 
     client.api._session_factory = extended_timeout
 
-    r = await req(data=data.model_dump(exclude_unset=True, by_alias=True))
+    r = await action(data=data.model_dump(exclude_unset=True, by_alias=True))
 
     client.api._session_factory = None
 
@@ -218,11 +217,8 @@ async def test_Action_CertificateService_GenerateCSR(client: aiopenapi3_redfish.
 @pytest.mark.asyncio
 async def test_Action_EID_674_Manager_ExportSystemConfiguration(client: aiopenapi3_redfish.Client):
     action = client.Manager.Oem["#OemManager.ExportSystemConfiguration"]
-    url = action._v.replace("iDRAC.Embedded.1", "{ManagerId}")
-    req = action._client.api.createRequest((url, "post"))
-    t = req.data.get_type()
-    tShareParameters = t.model_fields["ShareParameters"].annotation
-    data = t(
+    tShareParameters = action.data.model_fields["ShareParameters"].annotation
+    data = action.data(
         ExportFormat="XML",
         ExportUse="Clone",
         IncludeInExport=[],
@@ -230,7 +226,7 @@ async def test_Action_EID_674_Manager_ExportSystemConfiguration(client: aiopenap
     )
 
     try:
-        r = await req(parameters={"ManagerId": "iDRAC.Embedded.1"}, data=data.model_dump(exclude_unset=True))
+        r = await action(data=data.model_dump(exclude_unset=True))
     except aiopenapi3.ResponseSchemaError as e:
         return
 
@@ -255,10 +251,8 @@ async def test_EventService_SSE(client, capsys):
     async def sendtestevent():
         for i in range(3):
             action = client.EventService["#EventService.SubmitTestEvent"]
-            url = action._v.replace("iDRAC.Embedded.1", "{ManagerId}")
-            req = action._client.api.createRequest((url, "post"))
-            data = req.data.get_type().model_validate(dict(EventType="Alert", MessageId="AMP0300"))
-            r = await req(data=data.model_dump(exclude_unset=True, by_alias=True))
+            data = action.data.model_validate(dict(EventType="Alert", MessageId="AMP0300"))
+            r = await action(data=data.model_dump(exclude_unset=True, by_alias=True))
             asyncio.sleep(5)
 
     task = asyncio.create_task(sendtestevent())

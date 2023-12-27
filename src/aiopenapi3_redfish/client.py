@@ -93,9 +93,10 @@ class Client:
         api.authenticate(basicAuth=config.auth)
         return api
 
-    def routeOf(self, url: yarl.URL):
-        assert isinstance(url, yarl.URL), f"{url} {type(url)}"
-        r = self.routes.routematch(str(url.with_fragment(None)))
+    def routeOf(self, url: Union[str, yarl.URL]):
+        if isinstance(url, yarl.URL):
+            url = str(url.with_fragment(None))
+        r = self.routes.routematch(url)
         if r is None:
             raise KeyError(url)
         parameters, route, *_ = r

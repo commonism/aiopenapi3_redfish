@@ -49,10 +49,6 @@ class SessionService(ResourceRoot):
     async def createSession(self):
         auth = copy.copy(self._client.api._security["basicAuth"])
         req = self._client.api._[("/redfish/v1/SessionService/Sessions", "post")]
-        data = req.data.get_type().model_validate(
-            {"@odata.id": "", "@odata.type": "", "Id": "", "Name": "", "UserName": auth[0], "Password": auth[1]}
-        )
-        #        r = await req(data=data.model_dump(exclude_unset=True))
 
         data = {"UserName": auth[0], "Password": auth[1]}
         try:
