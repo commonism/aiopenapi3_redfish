@@ -181,13 +181,20 @@ async def test_Manager(client):
 
 
 @pytest.mark.asyncio
-async def test_SessionService(client):
-    await client.SessionService.createSession()
-    async for session in client.SessionService.Sessions.list():
-        try:
-            await session.delete()
-        except aiopenapi3.ResponseSchemaError as e:
-            pass
+async def test_SessionService(client, auth):
+    session = await client.SessionService.createSession()
+    client.api.authenticate(None, basicAuth=client.config.auth)
+
+    await client.SessionService.Sessions.refresh()
+    async for s in client.SessionService.Sessions.list():
+        await s.delete()
+
+    with pytest.raises(RedfishException):
+        await session.delete()
+
+    with pytest.raises(RedfishException):
+        async for s in client.SessionService.Sessions.list(skip_errors=False):
+            await s.delete()
 
 
 @pytest.mark.asyncio
