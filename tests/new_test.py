@@ -308,3 +308,24 @@ def test_DellAttributesLocal():
     ntp = obj.filter('.NTPConfigGroup."1"')
     wanted = {"NTP1": "ntp.example.org", "NTPEnable": "Enabled", "NTPMaxDist": 16}
     return None
+
+
+@pytest.mark.asyncio
+async def test_Accounts(client, capsys):
+    async for account in client.AccountService.Accounts.list():
+        if account.Enabled == False:
+            continue
+        if account.UserName == "root":
+            break
+    else:
+        raise KeyError(account)
+
+    r = await account.setPassword(account._client.api._security["basicAuth"][1])
+    assert r
+
+    r = await client.AccountService.Accounts.index(4)
+    #    assert r.Enabled is False
+    v = await r.patch({"Enabled": not r.Enabled, "UserName": "debug", "Password": "mercury4111111"})
+    assert v.Enabled != r.Enabled
+
+    await r.patch({"Enabled": False})
