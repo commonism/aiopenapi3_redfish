@@ -22,6 +22,7 @@ from .service import (
 )
 from .manager import Managers
 
+
 if typing.TYPE_CHECKING:
     from aiopenapi3.plugin import Plugin
     from aiopenapi3.loader import Loader
@@ -106,16 +107,23 @@ class AsyncClient:
         parameters, route, *_ = r
         return parameters, route.routepath
 
-    async def delete(self, path):
-        return await self._request(path, "delete")
+    async def delete(self, path, context=None):
+        return await self._request(path, "delete", context=context)
 
     async def get(self, path):
         return await self._request(path, "get")
 
-    async def _request(self, path, method):
-        parameters, routepath = self.routeOf(yarl.URL(path))
+    async def patch(self, path, data, context):
+        return await self._request(path, "patch", data=data, context=context)
+
+    async def _request(self, path, method, parameters=None, data=None, context=None):
+        p, routepath = self.routeOf(yarl.URL(path))
         req = self.api._[(routepath, method)]
-        r = await req(parameters=parameters)
+        if parameters is not None:
+            p.update(parameters)
+        r = await req(parameters=p, data=data, context=context)
+        if isinstance(r, self.api.components.schemas["RedfishError"].get_type()):
+            raise RedfishException(r)
         return r
 
     @property
