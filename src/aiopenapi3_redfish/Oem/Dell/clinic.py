@@ -1,6 +1,8 @@
+import inspect
 from pathlib import Path
 import copy
 import json
+import collections
 
 import yarl
 
@@ -149,325 +151,125 @@ paths:
         return ctx
 
 
-class Init(aiopenapi3.plugin.Init):
-    def schemas(self, ctx: "Init.Context") -> "Init.Context":
-        pass
+def Received(*patterns, method=None):
+    return Routes("_received", *patterns, method=method)
 
 
-class ExportSystemConfiguration(aiopenapi3.plugin.Message):
-    def received(self, ctx: "Message.Context") -> "Message.Context":
-        import json
-
-        if ctx.request.path not in (
-            "/redfish/v1/Managers/{ManagerId}/Actions/Oem/EID_674_Manager.ExportSystemConfiguration",
-            "/redfish/v1/Managers/{ManagerId}/Actions/Oem/EID_674_Manager.ImportSystemConfiguration",
-        ):
-            return ctx
-
-        if ctx.request.method != "post":
-            return ctx
-
-        l = ctx.headers["Location"]
-        _, _, jobid = l.rpartition("/")
-        ctx.received = json.dumps({"@odata.id": "", "@odata.type": "#x.x", "Id": jobid, "Name": ""})
-        return ctx
+def Parsed(*patterns, method=None):
+    return Routes("_parsed", *patterns, method=method)
 
 
-class Task(aiopenapi3.plugin.Message):
-    def received(self, ctx: "Message.Context") -> "Message.Context":
-        if ctx.request.path != "/redfish/v1/TaskService/Tasks/{TaskId}":
-            return ctx
-
-        if ctx.request.method != "get":
-            return ctx
-
-        if ctx.status_code != "200":
-            ctx.status_code = "200"
-        else:
-            ctx.received = json.dumps(
-                {
-                    "@odata.id": "",
-                    "@odata.type": "#Task._.Task",
-                    "Id": ctx.request.vars.parameters["TaskId"],
-                    "Name": "",
-                    "Messages": [{"MessageId": "", "Message": ctx.received.decode("utf-8")}],
-                }
-            )
-            ctx.content_type = "application/json"
-        return ctx
-
-
-class RoutingContext:
-    pass
-
-
-def Routes(*args):
-    def x(*args, **kwargs):
-        return None
+def Routes(_route, *patterns, method=None):
+    def x(f):
+        p = _route
+        setattr(f, p, (m := getattr(f, p, set())))
+        m.update(frozenset((p, tuple(method) if method else None) for p in patterns))
+        return f
 
     return x
 
 
 class Message(aiopenapi3.plugin.Message):
+    class Methods:
+        def __init__(self):
+            self._get = self._post = self._patch = self._put = self._delete = None
+            self.default = None
+
+        @property
+        def get(self):
+            return self._get or self.default
+
+        @property
+        def post(self):
+            return self._post or self.default
+
+        @property
+        def patch(self):
+            return self._patch or self.default
+
+        @property
+        def put(self):
+            return self._put or self.default
+
+        @property
+        def delete(self):
+            return self._delete or self.default
+
+    def __init__(self):
+        super().__init__()
+        self._received = collections.defaultdict(lambda: Message.Methods())
+        self._parsed = collections.defaultdict(lambda: Message.Methods())
+        for op, mapping in {"_received": self._received, "_parsed": self._parsed}.items():
+            for name, i in filter(
+                lambda kv: kv[1] and inspect.ismethod(kv[1]) and hasattr(kv[1], op),
+                map(lambda x: (x, getattr(self, x)), dir(self)),
+            ):
+                objmap = getattr(i, op)
+                for url, methods in objmap:
+                    if methods:
+                        for m in methods:
+                            setattr(mapping[url], f"_{m}", i)
+                    else:
+                        mapping[url].default = i
+        return None
+
+    def _dr(self, what, ctx):
+        if (r := what.get(ctx.request.path, None)) and (m := getattr(r, ctx.request.method, None)):
+            m(ctx)
+        return ctx
+
     def parsed(self, ctx: "Message.Context") -> "Message.Context":
-        pass
+        return self._dr(self._parsed, ctx)
 
-    @Routes("/redfish/v1/Systems")
-    async def _handle_Systems(self, page: RoutingContext):
-        pass
+    def received(self, ctx: "Message.Context") -> "Message.Context":
+        return self._dr(self._received, ctx)
 
-    @Routes("/redfish/v1/Systems/{ComputerSystemId}")
-    async def _handle_System(self, page: RoutingContext):
-        pass
+    @Parsed("/redfish/v1/AccountService/Accounts/{ManagerAccountId}", method=["patch", "post"])
+    @Parsed("/redfish/v1/SessionService/Sessions/{SessionId}", method=["delete"])
+    def dr_NODATA(self, ctx: "Message.Context"):
+        if not ((context := ctx.request.vars.context) and isinstance(context._v, ctx.expected_type.get_type())):
+            return ctx
+        assert ctx.request.method in ["post", "patch", "delete"]
 
-    @Routes("/redfish/v1/Systems/{ComputerSystemId}/Processors")
-    async def _handle_Processors(self, page: RoutingContext):
-        pass
+        if (
+            len(ctx.parsed.keys()) == 1
+            and (v := ctx.parsed.get("@Message.ExtendedInfo", None)) is not None
+            and any(map(lambda x: x["MessageId"] == "Base.1.12.Success", v))
+        ):
+            data = context._v.model_dump(by_alias=True, exclude_unset=True)
+            data.update(ctx.parsed)
+            if ctx.request.vars.data is not None:
+                data.update(ctx.request.vars.data)
+            ctx.parsed = data
 
-    @Routes("/redfish/v1/Systems/{ComputerSystemId}/Processors/{ProcessorId}")
-    async def _handle_Processor(self, page: RoutingContext):
-        pass
+    @Received("/redfish/v1/TaskService/Tasks/{TaskId}", method=["get"])
+    def dr_Task(self, ctx: "Message.Context") -> "Message.Context":
+        if ctx.status_code != "200":
+            ctx.status_code = "200"
+        else:
+            if ctx.content_type.partition(";")[0].lower() != "application/json":
+                ctx.received = json.dumps(
+                    {
+                        "@odata.id": ctx.request.req.url,
+                        "@odata.type": "#Task._.Task",
+                        "Id": ctx.request.vars.parameters["TaskId"],
+                        "Name": "",
+                        "Messages": [{"MessageId": "", "Message": ctx.received.decode("utf-8")}],
+                    }
+                )
+                ctx.content_type = "application/json"
+        return ctx
 
-    @Routes("/redfish/v1/Systems/{ComputerSystemId}/Memory")
-    async def _handle_MemoryCollection(self, page: RoutingContext):
-        pass
-
-    @Routes("/redfish/v1/Systems/{ComputerSystemId}/Memory/{MemoryId}")
-    async def _handle_Memory(self, page: RoutingContext):
-        pass
-
-    @Routes("/redfish/v1/Systems/{ComputerSystemId}/Storage")
-    async def _handle_StorageCollection(self, page: RoutingContext):
-        for i in page.data.Members:
-            await self.visit(i.odata_id_)
-
-    @Routes("/redfish/v1/Systems/{ComputerSystemId}/Storage/{StorageId}")
-    async def _handle_Storage(self, page: RoutingContext):
-        pass
-
-    @Routes("/redfish/v1/Chassis")
-    async def _handle_ChassisCollection(self, page: RoutingContext):
-        pass
-
-    @Routes("/redfish/v1/Chassis/{ChassisId}")
-    async def _handle_Chassis(self, page: RoutingContext):
-        pass
-
-    @Routes("/redfish/v1/Chassis/{ChassisId}/Power")
-    async def _handle_Power(self, page: RoutingContext):
-        pass
-
-    @Routes("/redfish/v1/Managers")
-    async def _handle_Managers(self, page: RoutingContext):
-        pass
-
-    @Routes("/redfish/v1/Managers/{ManagerId}")
-    async def _handle_Manager(self, page: RoutingContext):
-        pass
-
-    @Routes("/redfish/v1/Managers/{ManagerId}/NetworkProtocol")
-    async def _handle_NetworkProtocol(self, page: RoutingContext):
-        pass
-
-    @Routes("/redfish/v1/TaskService")
-    async def _handle_TaskService(self, page: RoutingContext):
-        pass
-
-    @Routes("/redfish/v1/TaskService/Tasks")
-    async def _handle_Tasks(self, page: RoutingContext):
-        pass
-
-    @Routes("/redfish/v1/SessionService")
-    async def _handle_SessionService(self, page: RoutingContext):
-        pass
-
-    @Routes("/redfish/v1/AccountService")
-    async def _handle_AccountService(self, page: RoutingContext):
-        pass
-
-    @Routes("/redfish/v1/EventService")
-    async def _handle_EventService(self, page: RoutingContext):
-        pass
-
-    @Routes("/redfish/v1/Registries")
-    async def _handle_Registries(self, page: RoutingContext):
-        pass
-
-    @Routes("/redfish/v1/Registries/{MessageRegistryFileId}")
-    async def _handle_MessageRegistryFile(self, page: RoutingContext):
-        pass
-
-    @Routes("/redfish/v1/JsonSchemas")
-    async def _handle_JsonSchemas(self, page: RoutingContext):
-        pass
-
-    @Routes("/redfish/v1/Systems/{ComputerSystemId}/Storage/{StorageId}/Volumes")
-    async def _handle_Volumes(self, page: RoutingContext):
-        pass
-
-    @Routes("/redfish/v1/Systems/{ComputerSystemId}/Storage/{StorageId}/Volumes/{VolumeId}")
-    async def _handle_Volume(self, page: RoutingContext):
-        pass
-
-    @Routes("/redfish/v1/Systems/{ComputerSystemId}/Storage/Drives/{DriveId}")
-    @Routes("/redfish/v1/Systems/{ComputerSystemId}/Storage/{StorageId}/Drives/{DriveId}")
-    async def _handle_Drive(self, page: RoutingContext):
-        pass
-
-    @Routes("/redfish/v1/Systems/{ComputerSystemId}/SimpleStorage")
-    async def _handle_SimpleStorageCollection(self, page: RoutingContext):
-        pass
-
-    @Routes("/redfish/v1/Systems/{ComputerSystemId}/SimpleStorage/{SimpleStorageId}")
-    async def _handle_SimpleStorage(self, page: RoutingContext):
-        pass
-
-    @Routes("/redfish/v1/Systems/{ComputerSystemId}/NetworkInterfaces")
-    async def _handle_NetworkInterfaces(self, page: RoutingContext):
-        pass
-
-    @Routes("/redfish/v1/Systems/{ComputerSystemId}/NetworkInterfaces/{NetworkInterfaceId}")
-    async def _handle_NetworkInterface(self, page: RoutingContext):
-        pass
-
-    @Routes("/redfish/v1/Chassis/{ChassisId}/NetworkAdapters/{NetworkAdapterId}")
-    async def _handle_NetworkAdapter(self, page: RoutingContext):
-        pass
-
-    @Routes("/redfish/v1/Chassis/{ChassisId}/NetworkAdapters/{NetworkAdapterId}/NetworkPorts")
-    async def _handle_NetworkPorts(self, page: RoutingContext):
-        pass
-
-    @Routes("/redfish/v1/Chassis/{ChassisId}/NetworkAdapters/{NetworkAdapterId}/NetworkPorts/{NetworkPortId}")
-    async def _handle_NetworkPort(self, page: RoutingContext):
-        pass
-
-    @Routes("/redfish/v1/Chassis/{ChassisId}/NetworkAdapters/{NetworkAdapterId}/NetworkDeviceFunctions")
-    async def _handle_NetworkDeviceFunctions(self, page: RoutingContext):
-        pass
-
-    @Routes(
-        "/redfish/v1/Chassis/{ChassisId}/NetworkAdapters/{NetworkAdapterId}/NetworkDeviceFunctions/{NetworkDeviceFunctionId}"
-    )
-    async def _handle_NetworkDeviceFunction(self, page: RoutingContext):
-        pass
-
-    @Routes("/redfish/v1/Systems/{ComputerSystemId}/EthernetInterfaces")
-    @Routes("/redfish/v1/Managers/{ManagerId}/EthernetInterfaces")
-    async def _handle_EthernetInterfaces(self, page: RoutingContext):
-        pass
-
-    @Routes("/redfish/v1/Systems/{ComputerSystemId}/EthernetInterfaces/{EthernetInterfaceId}")
-    @Routes("/redfish/v1/Managers/{ManagerId}/EthernetInterfaces/{EthernetInterfaceId}")
-    async def _handle_EthernetInterface(self, page: RoutingContext):
-        pass
-
-    # 6.91 ProcessorMetrics 1.6.0
-    @Routes(
-        "/redfish/v1/Systems/{ComputerSystemId}/Processors/{ProcessorId}/ProcessorMetrics",
-        "/redfish/v1/Systems/{ComputerSystemId}/Processors/{ProcessorId}/SubProcessors/{ProcessorId2}/ProcessorMetrics",
-        "/redfish/v1/Systems/{ComputerSystemId}/Processors/{ProcessorId}/SubProcessors/{ProcessorId2}/SubProcessors/{ProcessorId3}/ProcessorMetrics",
-        "/redfish/v1/Systems/{ComputerSystemId}/ProcessorSummary/ProcessorMetrics",
-    )
-
-    # 6.90 Processor 1.16.0
-    @Routes(
-        "/redfish/v1/Systems/{ComputerSystemId}/Processors/{ProcessorId}",
-        "/redfish/v1/Systems/{ComputerSystemId}/Processors/{ProcessorId}/SubProcessors/{ProcessorId2}",
-        "/redfish/v1/Systems/{ComputerSystemId}/Processors/{ProcessorId}/SubProcessors/{ProcessorId2}/SubProcessors/{ProcessorId3}",
-    )
-
-    # Dell
-    @Routes(
-        "/redfish/v1/Dell/Chassis/{ChassisId}/DellAssembly/{AssemblyId}",
-        "/redfish/v1/Chassis/{ChassisId}/Power/Oem/Dell/DellPowerSupplyInventory/{PowerSupplyId}",
-        "/redfish/v1/Managers/{ManagerId}/LogServices/{LogServiceId}/Entries",
-    )
-
-    # 6.13 Bios 1.2.0
-    @Routes(
-        "/redfish/v1/CompositionService/ResourceBlocks/{ResourceBlockId}/Systems/{ComputerSystemId}/Bios",
-        "/redfish/v1/ResourceBlocks/{ResourceBlockId}/Systems/{ComputerSystemId}/Bios",
-        "/redfish/v1/Systems/{ComputerSystemId}/Bios",
-    )
-
-    # 6.14 BootOption 1.0.4
-    @Routes(
-        "/redfish/v1/CompositionService/ResourceBlocks/{ResourceBlockId}/Systems/{ComputerSystemId}/BootOptions/{BootOptionId}",
-        "/redfish/v1/ResourceBlocks/{ResourceBlockId}/Systems/{ComputerSystemId}/BootOptions/{BootOptionId}",
-        "/redfish/v1/Systems/{ComputerSystemId}/BootOptions/{BootOptionId}",
-    )
-
-    # PCIeFunctionCollection
-    @Routes(
-        "/redfish/v1/Chassis/{ChassisId}/PCIeDevices/{PCIeDeviceId}/PCIeFunctions",
-        "/redfish/v1/CompositionService/ResourceBlocks/{ResourceBlockId}/Systems/{ComputerSystemId}/PCIeDevices/{PCIeDeviceId}/PCIeFunctions",
-        "/redfish/v1/ResourceBlocks/{ResourceBlockId}/Systems/{ComputerSystemId}/PCIeDevices/{PCIeDeviceId}/PCIeFunctions",
-        "/redfish/v1/Systems/{ComputerSystemId}/PCIeDevices/{PCIeDeviceId}/PCIeFunctions",
-    )
-
-    # LogEntryCollection
-    @Routes(
-        "/redfish/v1/Chassis/{ChassisId}/LogServices/{LogServiceId}/Entries",
-        "/redfish/v1/CompositionService/ResourceBlocks/{ResourceBlockId}/Systems/{ComputerSystemId}/LogServices/{LogServiceId}/Entries",
-        "/redfish/v1/JobService/Log/Entries",
-        "/redfish/v1/Managers/{ManagerId}/LogServices/{LogServiceId}/Entries",
-        "/redfish/v1/ResourceBlocks/{ResourceBlockId}/Systems/{ComputerSystemId}/LogServices/{LogServiceId}/Entries",
-        "/redfish/v1/Systems/{ComputerSystemId}/LogServices/{LogServiceId}/Entries",
-        "/redfish/v1/Systems/{ComputerSystemId}/Memory/{MemoryId}/DeviceLog/Entries",
-        "/redfish/v1/TelemetryService/LogService/Entries",
-    )
-
-    # 6.51 LogEntry 1.13.0
-    @Routes(
-        "/redfish/v1/Chassis/{ChassisId}/LogServices/{LogServiceId}/Entries/{LogEntryId}",
-        "/redfish/v1/CompositionService/ResourceBlocks/{ResourceBlockId}/Systems/{ComputerSystemId}/LogServices/{LogServiceId}/Entries/{LogEntryId}",
-        "/redfish/v1/JobService/Log/Entries/{LogEntryId}",
-        "/redfish/v1/Managers/{ManagerId}/LogServices/{LogServiceId}/Entries/{LogEntryId}",
-        "/redfish/v1/ResourceBlocks/{ResourceBlockId}/Systems/{ComputerSystemId}/LogServices/{LogServiceId}/Entries/{LogEntryId}",
-        "/redfish/v1/Systems/{ComputerSystemId}/LogServices/{LogServiceId}/Entries/{LogEntryId}",
-        "/redfish/v1/Systems/{ComputerSystemId}/Memory/{MemoryId}/DeviceLog/Entries/{LogEntryId}",
-        "/redfish/v1/TelemetryService/LogService/Entries/{LogEntryId}",
-    )
-
-    # 6.54 ManagerAccount 1.9.0
-    @Routes(
-        "/redfish/v1/AccountService/Accounts/{ManagerAccountId}",
-        "/redfish/v1/Managers/{ManagerId}/RemoteAccountService/Accounts/{ManagerAccountId}",
-    )
-
-    # 6.76 PCIeDevice 1.10.0
-    @Routes(
-        "/redfish/v1/Chassis/{ChassisId}/PCIeDevices/{PCIeDeviceId}",
-        "/redfish/v1/CompositionService/ResourceBlocks/{ResourceBlockId}/Systems/{ComputerSystemId}/PCIeDevices/{PCIeDeviceId}",
-        "/redfish/v1/ResourceBlocks/{ResourceBlockId}/Systems/{ComputerSystemId}/PCIeDevices/{PCIeDeviceId}",
-        "/redfish/v1/Systems/{ComputerSystemId}/PCIeDevices/{PCIeDeviceId}",
-    )
-
-    # 6.77 PCIeFunction 1.4.0
-    @Routes(
-        "/redfish/v1/Chassis/{ChassisId}/PCIeDevices/{PCIeDeviceId}/PCIeFunctions/{PCIeFunctionId}",
-        "/redfish/v1/CompositionService/ResourceBlocks/{ResourceBlockId}/Systems/{ComputerSystemId}/PCIeDevices/{PCIeDeviceId}/PCIeFunctions/{PCIeFunctionId}",
-        "/redfish/v1/ResourceBlocks/{ResourceBlockId}/Systems/{ComputerSystemId}/PCIeDevices/{PCIeDeviceId}/PCIeFunctions/{PCIeFunctionId}",
-        "/redfish/v1/Systems/{ComputerSystemId}/PCIeDevices/{PCIeDeviceId}/PCIeFunctions/{PCIeFunctionId}",
-    )
-
-    # 6.98 SecureBootDatabase 1.0.1
-    @Routes(
-        "/redfish/v1/CompositionService/ResourceBlocks/{ResourceBlockId}/Systems/{ComputerSystemId}/SecureBoot/SecureBootDatabases/{DatabaseId}",
-        "/redfish/v1/ResourceBlocks/{ResourceBlockId}/Systems/{ComputerSystemId}/SecureBoot/SecureBootDatabases/{DatabaseId}",
-        "/redfish/v1/Systems/{ComputerSystemId}/SecureBoot/SecureBootDatabases/{DatabaseId}",
-    )
-
-    # 6.100 Sensor 1.6.0
-    @Routes(
-        "/redfish/v1/Chassis/{ChassisId}/Sensors/{SensorId}",
-        "/redfish/v1/PowerEquipment/FloorPDUs/{PowerDistributionId}/Sensors/{SensorId}",
-        "/redfish/v1/PowerEquipment/PowerShelves/{PowerDistributionId}/Sensors/{SensorId}",
-        "/redfish/v1/PowerEquipment/RackPDUs/{PowerDistributionId}/Sensors/{SensorId}",
-        "/redfish/v1/PowerEquipment/Sensors/{SensorId}",
-        "/redfish/v1/PowerEquipment/Switchgear/{PowerDistributionId}/Sensors/{SensorId}",
-        "/redfish/v1/PowerEquipment/TransferSwitches/{PowerDistributionId}/Sensors/{SensorId}",
-    )
-    def __ignore(self):
-        pass
+    @Received("/redfish/v1/Managers/{ManagerId}/Actions/Oem/EID_674_Manager.ExportSystemConfiguration", method=["post"])
+    def dr_ExportSystemConfiguration(self, ctx: "Message.Context") -> "Message.Context":
+        location = ctx.headers["Location"]
+        _, _, jobid = location.rpartition("/")
+        ctx.received = json.dumps(
+            {
+                "@odata.id": location,
+                "@odata.type": "#Task._.Task",
+                "Id": jobid,
+                "Name": "Export: Server Configuration Profile",
+            }
+        )
+        return ctx
