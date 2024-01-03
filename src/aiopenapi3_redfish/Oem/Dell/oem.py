@@ -67,10 +67,26 @@ class DellAttributes(AsyncResourceRoot):
 
 @Detour(
     "/redfish/v1/Managers/{ManagerId}/Actions/Oem/EID_674_Manager.ExportSystemConfiguration",
+)
+class EID_674_Manager_ExportSystemConfiguration(AsyncActions.Action):
+    async def export(self, Format="XML", Use="Clone", FileName="test", Target="ALL"):
+        tShareParameters = self.data.model_fields["ShareParameters"].annotation
+        data = self.data(
+            ExportFormat=Format,
+            ExportUse=Use,
+            IncludeInExport=[],
+            ShareParameters=tShareParameters(FileName=FileName, Target=[Target]),
+        )
+
+        r = await self.__call__(data=data.model_dump(exclude_unset=True))
+        return r
+
+
+@Detour(
     "/redfish/v1/Managers/{ManagerId}/Actions/Oem/EID_674_Manager.ImportSystemConfiguration",
     "/redfish/v1/Managers/{ManagerId}/Actions/Oem/EID_674_Manager.ImportSystemConfigurationPreview",
 )
-class EID_674(Actions.Action):
+class EID_674_Manager_ImportSystemConfiguration(AsyncActions.Action):
     pass
 
 
@@ -95,7 +111,7 @@ class DellManager(AsyncActions.Action):
 class DellOem(Oem):
     detour = [
         DellAttributes,
-        EID_674,
+        EID_674_Manager_ExportSystemConfiguration,
         DellUpdateService,
         DellTelemetryService,
         DellManager,
