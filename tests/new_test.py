@@ -13,13 +13,11 @@ import pytest_asyncio
 from aiopenapi3.extra import Reduce
 from aiopenapi3.loader import RedirectLoader
 
-from aiopenapi3_redfish.client import Config, Client
+from aiopenapi3_redfish.client import Config, AsyncClient, RedfishException
 from aiopenapi3_redfish.clinic import RedfishDocument, PayloadAnnotations, ExposeResponseHeaders
 from aiopenapi3_redfish.Oem.Dell.clinic import (
     Document as OemDocument,
-    Init as OemInit,
-    Task as OemTask,
-    ExportSystemConfiguration as OemExportSystemConfiguration,
+    Message as OemMessage,
 )
 from aiopenapi3_redfish.Oem.Dell.oem import DellOem
 
@@ -73,6 +71,7 @@ async def client(description_documents, target, auth):
             PayloadAnnotations(),
             ExposeResponseHeaders(),
             OemDocument(t),
+            OemMessage(),
             #            OemInit(),
             Reduce(
                 #
@@ -109,6 +108,8 @@ async def client(description_documents, target, auth):
                 ("/redfish/v1/Managers/{ManagerId}", ["get"]),
                 (re.compile(r"^/redfish/v1/Managers/{ManagerId}/Actions/.*$"), ["post"]),
                 ("/redfish/v1/Managers/{ManagerId}/Actions/Oem/EID_674_Manager.ExportSystemConfiguration", ["post"]),
+                (re.compile(r"/redfish/v1/Managers/{ManagerId}/Actions/Oem/DellManager\..*$"), ["post"]),
+                ("/redfish/v1/Managers/iDRAC.Embedded.1/Actions/Oem/DellManager.SetCustomDefaults", ["post"]),
                 #
                 # DellAttributes
                 #
@@ -129,13 +130,14 @@ async def client(description_documents, target, auth):
                 # TelemetryService
                 #
                 ("/redfish/v1/TelemetryService", ["get"]),
+                ("/redfish/v1/TelemetryService/Actions/TelemetryService.SubmitTestMetricReport", ["post"]),
                 #
                 # UpdateService
                 #
                 ("/redfish/v1/UpdateService", ["get"]),
+                ("/redfish/v1/UpdateService/Actions/UpdateService.SimpleUpdate", ["post"]),
+                ("/redfish/v1/UpdateService/Actions/Oem/DellUpdateService.Install", ["post"]),
             ),
-            OemTask(),
-            OemExportSystemConfiguration(),
         ],
         locations=[
             RedirectLoader((v := description_documents / "dell" / "iDRAC_6.10.00.00_A00")),
@@ -145,9 +147,9 @@ async def client(description_documents, target, auth):
         cache=Path("/tmp/test_new.pickle"),
         session_factory=non_validating_https,
     )
-    client = Client(config)
+    client = AsyncClient(config)
     client._oem = DellOem()
-    await client.ainit()
+    await client.asyncInit()
     return client
 
 
@@ -198,7 +200,7 @@ async def test_SessionService(client, auth):
 
 
 @pytest.mark.asyncio
-async def test_Action_CertificateService_GenerateCSR(client: aiopenapi3_redfish.Client):
+async def test_Action_CertificateService_GenerateCSR(client: aiopenapi3_redfish.AsyncClient):
     action = client.CertificateService["#CertificateService.GenerateCSR"]
     data = action.data.model_validate(
         dict(
