@@ -104,10 +104,20 @@ class AsyncCollection(typing.Generic[T], AsyncResourceRoot):
         v = await self.T.asyncInit(self._client, i.odata_id_)
         return v
 
-    async def list(self) -> typing.Generator:
+    async def refresh(self):
+        self._v = await self._client.get(self._v.odata_id_)
+        self._data = self._v.Members
+        return self
+
+    async def list(self, skip_errors=True) -> typing.Generator:
         for i in self._data:
-            v = await self.T._init(self._client, i.odata_id_)
-            yield v
+            try:
+                v = await self.T.asyncInit(self._client, i.odata_id_)
+                yield v
+            except RedfishException as e:
+                if skip_errors:
+                    continue
+                raise e
 
     async def index(self, key):
         return await self.T.asyncInit(self._client, f"{self._v.odata_id_}/{key}")
