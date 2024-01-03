@@ -92,6 +92,17 @@ class AsyncTaskService(AsyncResourceRoot):
         obj.Tasks = await AsyncCollection[AsyncTaskService.Tasks_]().asyncInit(client, obj._v.Tasks.odata_id_)
         return obj
 
+    async def wait_for(self, TaskId: str, pollInterval=7, maxWait=700) -> Tasks_:
+        for i in range(maxWait // pollInterval):
+            r = await self.Tasks.index(TaskId)
+            if r.TaskState == "Running" and r.TaskStatus == "OK":
+                await asyncio.sleep(pollInterval)
+                continue
+            break
+        else:
+            raise TimeoutError(TaskId)
+        return r
+
 
 class AsyncTelemetryService(AsyncResourceRoot, AsyncActions):
     pass
