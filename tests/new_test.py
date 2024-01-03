@@ -215,31 +215,9 @@ async def test_Action_CertificateService_GenerateCSR(client: aiopenapi3_redfish.
 
 
 @pytest.mark.asyncio
-async def test_Action_EID_674_Manager_ExportSystemConfiguration(client: aiopenapi3_redfish.Client):
-    action = client.Manager.Oem["#OemManager.ExportSystemConfiguration"]
-    tShareParameters = action.data.model_fields["ShareParameters"].annotation
-    data = action.data(
-        ExportFormat="XML",
-        ExportUse="Clone",
-        IncludeInExport=[],
-        ShareParameters=tShareParameters(FileName="test", Target=["ALL"]),
-    )
-
-    try:
-        r = await action(data=data.model_dump(exclude_unset=True))
-    except aiopenapi3.ResponseSchemaError as e:
-        return
-
-    ## Poll JobId
-    while True:
-        r = await client.TaskService.Tasks.index(r.Id)
-        if r.TaskState == "Running" and r.TaskStatus == "OK":
-            await asyncio.sleep(7)
-            continue
-        break
-
-    ## last iteration … fetched Job
-    ## Task plugin mangled the message to carry the payload in JSON
+async def test_Action_EID_674_Manager_ExportSystemConfiguration(client: aiopenapi3_redfish.AsyncClient):
+    r = await client.Manager.Oem["#OemManager.ExportSystemConfiguration"].export()
+    r = await client.TaskService.wait_for(r.Id)
     payload = r.Messages[0].root.Message
     assert payload.startswith("<SystemConfiguration")
 
