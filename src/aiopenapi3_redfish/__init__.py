@@ -1,6 +1,6 @@
-from .client import Client
+from .client import AsyncClient
 from ._patch import patch_routes
 
 patch_routes()
 
-__all__ = ["Client"]
+__all__ = ["AsyncClient"]

@@ -12,13 +12,13 @@ from aiopenapi3.loader import ChainLoader
 from aiopenapi3_redfish.oem import Oem
 
 from .service import (
-    AccountService,
-    UpdateService,
-    TelemetryService,
-    CertificateService,
-    SessionService,
-    EventService,
-    TaskService,
+    AsyncAccountService,
+    AsyncUpdateService,
+    AsyncTelemetryService,
+    AsyncCertificateService,
+    AsyncSessionService,
+    AsyncEventService,
+    AsyncTaskService,
 )
 from .manager import Managers
 
@@ -46,12 +46,12 @@ class Config:
         self.session_factory: Union[httpx.AsyncClient | httpx.Client] = session_factory
 
 
-class Client:
+class AsyncClient:
     def __init__(self, config):
         self.config = config
         self.api = self.createAPI(config)
         self._serviceroot: "ServiceRoot" = None
-        self._accountservice: "AccountService" = None
+        self._accountservice: "AsyncAccountService" = None
 
         self.routes = routes.Mapper()
         for i in self.api.paths.paths.keys():
@@ -59,17 +59,21 @@ class Client:
 
         self._oem: Oem = None
 
-    async def ainit(self):
+    async def asyncInit(self):
         self._serviceroot = await self.get("/redfish/v1")
-        self._accountservice = await AccountService._init(self, self._serviceroot.AccountService.odata_id_)
-        self._certificateservice = await CertificateService._init(self, self._serviceroot.CertificateService.odata_id_)
-        self._eventservice = await EventService._init(self, self._serviceroot.EventService.odata_id_)
-        self._updateservice = await UpdateService._init(self, self._serviceroot.UpdateService.odata_id_)
-        self._telemetryservice = await TelemetryService._init(self, self._serviceroot.TelemetryService.odata_id_)
-        self._managers = await Managers._init(self, self._serviceroot.Managers.odata_id_)
+        self._accountservice = await AsyncAccountService.asyncInit(self, self._serviceroot.AccountService.odata_id_)
+        self._certificateservice = await AsyncCertificateService.asyncInit(
+            self, self._serviceroot.CertificateService.odata_id_
+        )
+        self._eventservice = await AsyncEventService.asyncInit(self, self._serviceroot.EventService.odata_id_)
+        self._updateservice = await AsyncUpdateService.asyncInit(self, self._serviceroot.UpdateService.odata_id_)
+        self._telemetryservice = await AsyncTelemetryService.asyncInit(
+            self, self._serviceroot.TelemetryService.odata_id_
+        )
+        self._managers = await Managers.asyncInit(self, self._serviceroot.Managers.odata_id_)
         self._manager = await self._managers.Managers.first()
-        self._sessionservice = await SessionService._init(self, self._serviceroot.SessionService.odata_id_)
-        self._taskservice = await TaskService._init(self, self._serviceroot.Tasks.odata_id_)
+        self._sessionservice = await AsyncSessionService.asyncInit(self, self._serviceroot.SessionService.odata_id_)
+        self._taskservice = await AsyncTaskService.asyncInit(self, self._serviceroot.Tasks.odata_id_)
 
     @classmethod
     def createAPI(cls, config):
@@ -115,15 +119,15 @@ class Client:
         return r
 
     @property
-    def AccountService(self) -> "AccountService":
+    def AccountService(self) -> "AsyncAccountService":
         return self._accountservice
 
     @property
-    def CertificateService(self) -> "CertificateService":
+    def CertificateService(self) -> "AsyncCertificateService":
         return self._certificateservice
 
     @property
-    def EventService(self) -> "EventService":
+    def EventService(self) -> "AsyncEventService":
         return self._eventservice
 
     @property
@@ -131,19 +135,19 @@ class Client:
         return self._manager
 
     @property
-    def SessionService(self) -> "SessionService":
+    def SessionService(self) -> "AsyncSessionService":
         return self._sessionservice
 
     @property
-    def TaskService(self) -> "TaskService":
+    def TaskService(self) -> "AsyncTaskService":
         return self._taskservice
 
     @property
-    def TelemetryService(self) -> "UpdateService":
+    def TelemetryService(self) -> "AsyncUpdateService":
         return self._telemetryservice
 
     @property
-    def UpdateService(self) -> "UpdateService":
+    def UpdateService(self) -> "AsyncUpdateService":
         return self._updateservice
 
     @property

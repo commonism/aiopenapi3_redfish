@@ -4,7 +4,7 @@ import enum
 import jq
 import yarl
 
-from aiopenapi3_redfish.base import ResourceRoot, ResourceItem, Actions, Collection
+from aiopenapi3_redfish.base import AsyncResourceRoot, ResourceItem, AsyncActions, AsyncCollection
 from aiopenapi3_redfish.oem import Oem, Detour
 
 
@@ -24,7 +24,7 @@ class DellOemLinks(ResourceItem):
         )
         data = [cls.model_validate(i) for i in self._v["DellAttributes"]]
 
-        c = Collection[DellAttributes](client=self._root._client, data=data)
+        c = AsyncCollection[DellAttributes](client=self._root._client, data=data)
         return c
 
 
@@ -32,7 +32,7 @@ class DellOemLinks(ResourceItem):
     "#DellAttributes.v1_0_0.DellAttributes",
     "/redfish/v1/Managers/{ManagerId}/Oem/Dell/DellAttributes/{DellAttributesId}",
 )
-class DellAttributes(ResourceRoot):
+class DellAttributes(AsyncResourceRoot):
     class Permissions(enum.IntFlag):
         """
         Source: Chassis Management Controller Version 1.25 for Dell PowerEdge VRTX RACADM Command Line Reference Guide
@@ -75,12 +75,12 @@ class EID_674(Actions.Action):
 
 
 @Detour("/redfish/v1/UpdateService/Actions/Oem/DellUpdateService.Install")
-class DellUpdateService(ResourceRoot, Actions):
+class DellUpdateService(AsyncActions.Action):
     pass
 
 
 @Detour("/redfish/v1/UpdateService/Actions/Oem/DellTelemetryService.SubmitMetricValue")
-class DellTelemetryService(ResourceRoot, Actions):
+class DellTelemetryService(AsyncActions.Action):
     pass
 
 
@@ -88,7 +88,7 @@ class DellTelemetryService(ResourceRoot, Actions):
     "/redfish/v1/Managers/{ManagerId}/Actions/Oem/DellManager.ResetToDefaults",
     "/redfish/v1/Managers/{ManagerId}/Actions/Oem/DellManager.SetCustomDefaults",
 )
-class DellManager(Actions.Action):
+class DellManager(AsyncActions.Action):
     pass
 
 

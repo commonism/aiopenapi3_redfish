@@ -10,12 +10,12 @@ import aiopenapi3.model
 from aiopenapi3_redfish.oem import Oem
 
 if typing.TYPE_CHECKING:
-    from .client import Client
+    from .client import AsyncClient
 
 
 class ResourceItem:
-    def __init__(self, root: "ResourceRoot", path: yarl.URL, value: "BaseModel"):
-        self._root: "ResourceRoot" = root
+    def __init__(self, root: "AsyncResourceRoot", path: yarl.URL, value: "BaseModel"):
+        self._root: "AsyncResourceRoot" = root
         self._path: yarl.URL = path
         self._v: BaseModel = value
 
@@ -47,22 +47,22 @@ class ResourceItem:
         return f"{self.__class__.__name__} {self._root} {self._path}"
 
 
-class ResourceRoot(ResourceItem):
-    def __init__(self, client: "Client", value: "BaseModel"):
-        self._client: "Client" = client
+class AsyncResourceRoot(ResourceItem):
+    def __init__(self, client: "AsyncClient", value: "BaseModel"):
+        self._client: "AsyncClient" = client
         super().__init__(self, yarl.URL("/"), value)
 
     async def get(self, *args, **kwargs):
-        return await self._client.patch(self._v.odata_id_, *args, **kwargs)
+        return await self._client.get(self._v.odata_id_, *args, **kwargs)
 
     async def patch(self, *args, **kwargs):
-        return await self._client.patch(self._v.odata_id_, *args, **kwargs)
+        return await self._client.patch(self._v.odata_id_, *args, context=self, **kwargs)
 
     async def delete(self):
-        return await self._client.delete(self._v.odata_id_)
+        return await self._client.delete(self._v.odata_id_, context=self)
 
     @classmethod
-    async def _init(cls, client: "Client", odata_id_: str):
+    async def asyncInit(cls, client: "AsyncClient", odata_id_: str):
         value = await client.get(odata_id_)
 
         tcls = client._oem.classFromResourceType(value.odata_type_, "/")
@@ -70,7 +70,7 @@ class ResourceRoot(ResourceItem):
         if rcls and tcls:
             assert tcls == rcls
 
-        if cls == ResourceRoot or cls == ResourceItem:
+        if cls == AsyncResourceRoot or cls == ResourceItem:
             cls = tcls or rcls or cls
         return cls(client, value)
 
@@ -81,7 +81,7 @@ class ResourceRoot(ResourceItem):
 T = typing.TypeVar("T")
 
 
-class Collection(typing.Generic[T], ResourceRoot):
+class AsyncCollection(typing.Generic[T], AsyncResourceRoot):
     def __init__(self, client=None, data=None):
         super().__init__(client, data)
         self._data = data or {}
@@ -93,7 +93,7 @@ class Collection(typing.Generic[T], ResourceRoot):
             self._T = typing.get_args(self.__orig_class__)[0]
         return self._T
 
-    async def _init(self, client: "Client", odata_id_: str):
+    async def asyncInit(self, client: "AsyncClient", odata_id_: str):
         value = await client.get(odata_id_)
         super().__init__(client, value)
         self._data = self._v.Members
@@ -101,7 +101,7 @@ class Collection(typing.Generic[T], ResourceRoot):
 
     async def first(self) -> T:
         i = self._data[0]
-        v = await self.T._init(self._client, i.odata_id_)
+        v = await self.T.asyncInit(self._client, i.odata_id_)
         return v
 
     async def list(self) -> typing.Generator:
@@ -110,12 +110,12 @@ class Collection(typing.Generic[T], ResourceRoot):
             yield v
 
     async def index(self, key):
-        return await self.T._init(self._client, f"{self._v.odata_id_}/{key}")
+        return await self.T.asyncInit(self._client, f"{self._v.odata_id_}/{key}")
 
 
-class Actions:
+class AsyncActions:
     class Action:
-        def __init__(self, client: "Client", url: str, parameters: Dict[str, str], odata_id_: str, title, fields):
+        def __init__(self, client: "AsyncClient", url: str, parameters: Dict[str, str], odata_id_: str, title, fields):
             self._client = client
             self.odata_id_ = odata_id_
             self.title = title
@@ -143,12 +143,12 @@ class Actions:
 
     def _createAction(self, target, title, fields):
         parameters, url = self._client.routeOf(target)
-        type_ = self._client._oem.classFromRoute(target) or Actions.Action
+        type_ = self._client._oem.classFromRoute(target) or AsyncActions.Action
         r = type_(self._client, url, parameters, target, title, fields)
         return r
 
     @property
-    def Oem(self) -> "Actions":
+    def Oem(self) -> "AsyncActions":
         r = dict()
         for k, v in self._v.Actions.Oem.model_extra.items():
             try:

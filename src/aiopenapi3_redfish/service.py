@@ -1,49 +1,52 @@
 import copy
 
-from .base import ResourceRoot, Collection, Actions
+from .base import AsyncResourceRoot, AsyncCollection, AsyncActions
 
 
-class AccountService(ResourceRoot):
-    class ManagerAccount(ResourceRoot):
-        pass
+class AsyncAccountService(AsyncResourceRoot):
+    class ManagerAccount(AsyncResourceRoot):
+        async def setPassword(self, password):
+            return await self.patch(data={"Password": password})
 
     def __init__(self, client: "Client", odata_id_: str):
-        ResourceRoot.__init__(self, client, odata_id_)
-        self.Accounts: "AccountService._Accounts" = None
+        AsyncResourceRoot.__init__(self, client, odata_id_)
+        self.Accounts: "AsyncAccountService._Accounts" = None
 
     @classmethod
-    async def _init(cls, client: "Client", odata_id_: str):
-        obj = await super()._init(client, odata_id_)
-        obj.Accounts = await Collection[AccountService.ManagerAccount]()._init(client, obj._v.Accounts.odata_id_)
+    async def asyncInit(cls, client: "Client", odata_id_: str):
+        obj = await super().asyncInit(client, odata_id_)
+        obj.Accounts = await AsyncCollection[AsyncAccountService.ManagerAccount]().asyncInit(
+            client, obj._v.Accounts.odata_id_
+        )
         return obj
 
 
-class CertificateService(ResourceRoot, Actions):
+class AsyncCertificateService(AsyncResourceRoot, AsyncActions):
     pass
 
 
-class Chassis(ResourceRoot):
+class AsyncChassis(AsyncResourceRoot):
     pass
 
 
-class EventService(ResourceRoot, Actions):
+class AsyncEventService(AsyncResourceRoot, AsyncActions):
     pass
 
 
-class Fabrics(ResourceRoot):
+class AsyncFabrics(AsyncResourceRoot):
     pass
 
 
-class JobService(ResourceRoot):
+class AsyncJobService(AsyncResourceRoot):
     pass
 
 
-class LicenseService(ResourceRoot):
+class AsyncLicenseService(AsyncResourceRoot):
     pass
 
 
-class SessionService(ResourceRoot):
-    class Session(ResourceRoot):
+class AsyncSessionService(AsyncResourceRoot):
+    class AsyncSession(AsyncResourceRoot):
         pass
 
     async def createSession(self):
@@ -59,38 +62,40 @@ class SessionService(ResourceRoot):
         except KeyError:
             self._client.api.authenticate(None)
             self._client.api.authenticate(basicAuth=auth)
-            return False
-        return True
+            return None
+        return AsyncSessionService.AsyncSession(self._client, value)
 
     @classmethod
-    async def _init(cls, client: "Client", odata_id_: str):
-        obj = await super()._init(client, odata_id_)
-        obj.Sessions = await Collection[SessionService.Session]()._init(client, obj._v.Sessions.odata_id_)
+    async def asyncInit(cls, client: "Client", odata_id_: str):
+        obj = await super().asyncInit(client, odata_id_)
+        obj.Sessions = await AsyncCollection[AsyncSessionService.AsyncSession]().asyncInit(
+            client, obj._v.Sessions.odata_id_
+        )
         return obj
 
 
-class Systems(ResourceRoot):
+class AsyncSystems(AsyncResourceRoot):
     pass
 
 
-class TaskService(ResourceRoot):
-    class Tasks_(ResourceRoot):
+class AsyncTaskService(AsyncResourceRoot):
+    class Tasks_(AsyncResourceRoot):
         pass
 
     def __init__(self, client: "Client", odata_id_: str):
-        ResourceRoot.__init__(self, client, odata_id_)
-        self.Tasks: "TaskService.Tasks_" = None
+        AsyncResourceRoot.__init__(self, client, odata_id_)
+        self.Tasks: "AsyncTaskService.Tasks_" = None
 
     @classmethod
-    async def _init(cls, client: "Client", odata_id_: str):
-        obj = await super()._init(client, odata_id_)
-        obj.Tasks = await Collection[TaskService.Tasks_]()._init(client, obj._v.Tasks.odata_id_)
+    async def asyncInit(cls, client: "Client", odata_id_: str):
+        obj = await super().asyncInit(client, odata_id_)
+        obj.Tasks = await AsyncCollection[AsyncTaskService.Tasks_]().asyncInit(client, obj._v.Tasks.odata_id_)
         return obj
 
 
-class TelemetryService(ResourceRoot, Actions):
+class AsyncTelemetryService(AsyncResourceRoot, AsyncActions):
     pass
 
 
-class UpdateService(ResourceRoot, Actions):
+class AsyncUpdateService(AsyncResourceRoot, AsyncActions):
     pass
