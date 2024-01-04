@@ -79,17 +79,17 @@ class AsyncSystems(AsyncResourceRoot):
 
 
 class AsyncTaskService(AsyncResourceRoot):
-    class Tasks_(AsyncResourceRoot):
+    class AsyncTask(AsyncResourceRoot):
         pass
 
     def __init__(self, client: "Client", odata_id_: str):
         AsyncResourceRoot.__init__(self, client, odata_id_)
-        self.Tasks: "AsyncTaskService.Tasks_" = None
+        self.Tasks: Optional[AsyncCollection[AsyncTaskService.AsyncTask]] = None
 
     @classmethod
     async def asyncInit(cls, client: "Client", odata_id_: str):
         obj = await super().asyncInit(client, odata_id_)
-        obj.Tasks = await AsyncCollection[AsyncTaskService.Tasks_]().asyncInit(client, obj._v.Tasks.odata_id_)
+        obj.Tasks = await AsyncCollection[AsyncTaskService.AsyncTask]().asyncInit(client, obj._v.Tasks.odata_id_)
         return obj
 
     async def wait_for(self, TaskId: str, pollInterval=7, maxWait=700) -> Tasks_:
