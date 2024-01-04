@@ -1,8 +1,10 @@
 import asyncio
+import string
 from pathlib import Path
 import re
 import json
-from unittest.mock import MagicMock
+import random
+
 
 import aiopenapi3
 import httpx
@@ -328,7 +330,13 @@ async def test_Accounts(client, capsys):
 
     r = await client.AccountService.Accounts.index(4)
     #    assert r.Enabled is False
-    v = await r.patch({"Enabled": not r.Enabled, "UserName": "debug", "Password": "mercury4111111"})
+    v = await r.patch(
+        {
+            "Enabled": not r.Enabled,
+            "UserName": "debug",
+            "Password": "".join(random.choice(string.ascii_letters + string.digits) for _ in range(16)),
+        }
+    )
     assert v.Enabled != r.Enabled
 
     await r.patch({"Enabled": False})
