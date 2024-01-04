@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 import aiopenapi3.model
 
+from aiopenapi3_redfish.errors import RedfishException
 from aiopenapi3_redfish.oem import Oem
 
 if typing.TYPE_CHECKING:

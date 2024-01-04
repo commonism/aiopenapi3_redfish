@@ -13,7 +13,8 @@ import pytest_asyncio
 from aiopenapi3.extra import Reduce
 from aiopenapi3.loader import RedirectLoader
 
-from aiopenapi3_redfish.client import Config, AsyncClient, RedfishException
+from aiopenapi3_redfish.client import Config, AsyncClient
+from aiopenapi3_redfish.errors import RedfishException
 from aiopenapi3_redfish.clinic import RedfishDocument, PayloadAnnotations, ExposeResponseHeaders
 from aiopenapi3_redfish.Oem.Dell.clinic import (
     Document as OemDocument,

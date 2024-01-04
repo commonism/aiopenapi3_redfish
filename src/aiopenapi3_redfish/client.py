@@ -9,6 +9,7 @@ import routes
 from aiopenapi3 import OpenAPI
 from aiopenapi3.loader import ChainLoader
 
+from aiopenapi3_redfish.errors import RedfishException
 from aiopenapi3_redfish.oem import Oem
 
 from .service import (
@@ -59,6 +60,7 @@ class AsyncClient:
             self.routes.connect(i)
 
         self._oem: Oem = None
+        self._RedfishError = self.api.components.schemas["RedfishError"].get_type()
 
     async def asyncInit(self):
         self._serviceroot = await self.get("/redfish/v1")
@@ -122,7 +124,7 @@ class AsyncClient:
         if parameters is not None:
             p.update(parameters)
         r = await req(parameters=p, data=data, context=context)
-        if isinstance(r, self.api.components.schemas["RedfishError"].get_type()):
+        if isinstance(r, self._RedfishError):
             raise RedfishException(r)
         return r
 
