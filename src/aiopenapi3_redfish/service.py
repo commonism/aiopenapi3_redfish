@@ -1,4 +1,6 @@
-import copy
+import asyncio
+
+from typing import Optional
 
 from .base import AsyncResourceRoot, AsyncCollection, AsyncActions
 
@@ -50,7 +52,7 @@ class AsyncSessionService(AsyncResourceRoot):
         pass
 
     async def createSession(self):
-        auth = copy.copy(self._client.api._security["basicAuth"])
+        auth = self._client.api._security["basicAuth"]
         req = self._client.api._[("/redfish/v1/SessionService/Sessions", "post")]
 
         data = {"UserName": auth[0], "Password": auth[1]}
@@ -60,8 +62,7 @@ class AsyncSessionService(AsyncResourceRoot):
             self._client.api.authenticate(**{"X-Auth": headers["X-Auth-Token"]})
             self._session = (headers, value)
         except KeyError:
-            self._client.api.authenticate(None)
-            self._client.api.authenticate(basicAuth=auth)
+            self._client.api.authenticate(None, basicAuth=self._client.config.auth)
             return None
         return AsyncSessionService.AsyncSession(self._client, value)
 
@@ -92,7 +93,7 @@ class AsyncTaskService(AsyncResourceRoot):
         obj.Tasks = await AsyncCollection[AsyncTaskService.AsyncTask]().asyncInit(client, obj._v.Tasks.odata_id_)
         return obj
 
-    async def wait_for(self, TaskId: str, pollInterval=7, maxWait=700) -> Tasks_:
+    async def wait_for(self, TaskId: str, pollInterval: int = 7, maxWait: int = 700) -> AsyncTask:
         for i in range(maxWait // pollInterval):
             r = await self.Tasks.index(TaskId)
             if r.TaskState == "Running" and r.TaskStatus == "OK":
