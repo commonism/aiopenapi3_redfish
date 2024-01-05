@@ -151,17 +151,19 @@ async def client(description_documents, target, auth):
         session_factory=non_validating_https,
     )
     client = AsyncClient(config)
-    client._oem = DellOem()
+    from aiopenapi3_redfish.oem import Mapping, Defaults
+
+    client._mapping = Mapping(oem=DellOem(), defaults=Defaults())
     await client.asyncInit()
     return client
 
 
 @pytest.mark.asyncio
 async def test_new_Client(client):
-    action = client.UpdateService["#UpdateService.SimpleUpdate"]
-    action = client.UpdateService.Oem["DellUpdateService.v1_1_0#DellUpdateService.Install"]
+    action = client.UpdateService.Actions["#UpdateService.SimpleUpdate"]
+    action = client.UpdateService.Actions.Oem["DellUpdateService.v1_1_0#DellUpdateService.Install"]
 
-    action = client.TelemetryService["#TelemetryService.SubmitTestMetricReport"]
+    action = client.TelemetryService.Actions["#TelemetryService.SubmitTestMetricReport"]
 
     idx = 1
     async for i in client.AccountService.Accounts.list():
@@ -176,10 +178,10 @@ async def test_new_Client(client):
 @pytest.mark.asyncio
 async def test_Manager(client):
     manager = client.Manager
-    action = manager["#Manager.Reset"]
+    action = manager.Actions["#Manager.Reset"]
     assert action is not None
 
-    action = manager.Oem["#DellManager.ResetToDefaults"]
+    action = manager.Actions.Oem["#DellManager.ResetToDefaults"]
     assert action is not None
 
     return None
@@ -204,7 +206,7 @@ async def test_SessionService(client, auth):
 
 @pytest.mark.asyncio
 async def test_Action_CertificateService_GenerateCSR(client: aiopenapi3_redfish.AsyncClient):
-    action = client.CertificateService["#CertificateService.GenerateCSR"]
+    action = client.CertificateService.Actions["#CertificateService.GenerateCSR"]
     data = action.data.model_validate(
         dict(
             CertificateCollection={
@@ -228,7 +230,7 @@ async def test_Action_CertificateService_GenerateCSR(client: aiopenapi3_redfish.
 
 @pytest.mark.asyncio
 async def test_Action_EID_674_Manager_ExportSystemConfiguration(client: aiopenapi3_redfish.AsyncClient):
-    r = await client.Manager.Oem["#OemManager.ExportSystemConfiguration"].export()
+    r = await client.Manager.Actions.Oem["#OemManager.ExportSystemConfiguration"].export()
     r = await client.TaskService.wait_for(r.Id)
     payload = r.Messages[0].root.Message
     assert payload.startswith("<SystemConfiguration")
@@ -240,7 +242,7 @@ async def test_EventService_SSE(client, capsys):
 
     async def sendtestevent():
         for i in range(3):
-            action = client.EventService["#EventService.SubmitTestEvent"]
+            action = client.EventService.Actions["#EventService.SubmitTestEvent"]
             data = action.data.model_validate(dict(EventType="Alert", MessageId="AMP0300"))
             r = await action(data=data.model_dump(exclude_unset=True, by_alias=True))
             asyncio.sleep(5)
@@ -274,6 +276,18 @@ async def test_EventService_SSE(client, capsys):
             break
     await task
 
+    return None
+
+
+@pytest.mark.asyncio
+async def test_Oem(client):
+    import aiopenapi3_redfish.Oem.Dell.oem
+
+    links = client.Manager.Links.Oem
+    assert isinstance(links, aiopenapi3_redfish.Oem.Dell.oem.ManagerLinksOem)
+
+    actions = client.Manager.Actions.Oem
+    assert isinstance(actions, aiopenapi3_redfish.Oem.Dell.oem.ManagerActionsOem)
     return None
 
 

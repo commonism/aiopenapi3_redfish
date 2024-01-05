@@ -2,7 +2,7 @@ import asyncio
 
 from typing import Optional
 
-from .base import AsyncResourceRoot, AsyncCollection, AsyncActions
+from .base import AsyncResourceRoot, AsyncCollection
 
 
 class AsyncAccountService(AsyncResourceRoot):
@@ -23,7 +23,7 @@ class AsyncAccountService(AsyncResourceRoot):
         return obj
 
 
-class AsyncCertificateService(AsyncResourceRoot, AsyncActions):
+class AsyncCertificateService(AsyncResourceRoot):
     pass
 
 
@@ -31,7 +31,7 @@ class AsyncChassis(AsyncResourceRoot):
     pass
 
 
-class AsyncEventService(AsyncResourceRoot, AsyncActions):
+class AsyncEventService(AsyncResourceRoot):
     pass
 
 
@@ -105,9 +105,9 @@ class AsyncTaskService(AsyncResourceRoot):
         return r
 
 
-class AsyncTelemetryService(AsyncResourceRoot, AsyncActions):
+class AsyncTelemetryService(AsyncResourceRoot):
     pass
 
 
-class AsyncUpdateService(AsyncResourceRoot, AsyncActions):
+class AsyncUpdateService(AsyncResourceRoot):
     pass

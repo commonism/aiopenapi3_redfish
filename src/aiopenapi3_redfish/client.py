@@ -59,7 +59,7 @@ class AsyncClient:
         for i in self.api.paths.paths.keys():
             self.routes.connect(i)
 
-        self._oem: Oem = None
+        self._mapping: "Mapping" = None
         self._RedfishError = self.api.components.schemas["RedfishError"].get_type()
 
     async def asyncInit(self):

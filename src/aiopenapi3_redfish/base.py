@@ -1,5 +1,4 @@
 import typing
-from typing import Dict, Optional
 
 import yarl
 
@@ -37,7 +36,7 @@ class ResourceItem:
             else:
                 path = self._path / name
                 odata_type = root._v.odata_type_
-            if (cls := self._root._client._oem.classFromResourceType(odata_type, str(path))) is not None:
+            if (cls := self._root._client._mapping.classFromResourceType(odata_type, str(path))) is not None:
                 return cls(root, path, v)
             else:
                 if isinstance(v, BaseModel):
@@ -66,8 +65,8 @@ class AsyncResourceRoot(ResourceItem):
     async def asyncInit(cls, client: "AsyncClient", odata_id_: str):
         value = await client.get(odata_id_)
 
-        tcls = client._oem.classFromResourceType(value.odata_type_, "/")
-        rcls = client._oem.classFromRoute(odata_id_)
+        tcls = client._mapping.classFromResourceType(value.odata_type_, "/")
+        rcls = client._mapping.classFromRoute(odata_id_)
         if rcls and tcls:
             assert tcls == rcls
 
@@ -122,50 +121,3 @@ class AsyncCollection(typing.Generic[T], AsyncResourceRoot):
 
     async def index(self, key):
         return await self.T.asyncInit(self._client, f"{self._v.odata_id_}/{key}")
-
-
-class AsyncActions:
-    class Action:
-        def __init__(self, client: "AsyncClient", url: str, parameters: Dict[str, str], odata_id_: str, title, fields):
-            self._client = client
-            self.odata_id_ = odata_id_
-            self.title = title
-            self.fields: Dict[str, str] = fields
-            self.parameters = parameters
-            self.url = url
-            self.req = self._client.api.createRequest((self.url, "post"))
-
-        @property
-        def data(self):
-            return self.req.data.get_type()
-
-        async def __call__(self, *args, parameters: Optional[Dict[str, str]] = None, **kwargs):
-            if parameters:
-                parameters.update(self.parameters)
-            else:
-                parameters = self.parameters
-            r = await self.req(*args, parameters=parameters, **kwargs)
-            return r
-
-    def __getitem__(self, key):
-        name = aiopenapi3.model.Model.nameof(key)
-        v = getattr(self._v.Actions, name)
-        return self._createAction(v.target, v.title, v.model_extra)
-
-    def _createAction(self, target, title, fields):
-        parameters, url = self._client.routeOf(target)
-        type_ = self._client._oem.classFromRoute(target) or AsyncActions.Action
-        r = type_(self._client, url, parameters, target, title, fields)
-        return r
-
-    @property
-    def Oem(self) -> "AsyncActions":
-        r = dict()
-        for k, v in self._v.Actions.Oem.model_extra.items():
-            try:
-                cls = self._createAction(v["target"], v.get("title", ""), v)
-            except KeyError:
-                print(f"missing {v['target']}")
-                continue
-            r[k] = cls
-        return r

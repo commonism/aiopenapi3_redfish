@@ -2,11 +2,11 @@ from typing import List
 
 import yarl
 
-from .base import AsyncResourceRoot, AsyncCollection, AsyncActions
+from .base import AsyncResourceRoot, AsyncCollection
 
 
 class Managers(AsyncResourceRoot):
-    class Manager_(AsyncResourceRoot, AsyncActions):
+    class Manager_(AsyncResourceRoot):
         pass
 
     def __init__(self, client: "Client", odata_id_: str):

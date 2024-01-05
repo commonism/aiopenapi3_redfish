@@ -4,13 +4,24 @@ import enum
 import jq
 import yarl
 
-from aiopenapi3_redfish.base import AsyncResourceRoot, ResourceItem, AsyncActions, AsyncCollection
+from aiopenapi3_redfish.base import AsyncResourceRoot, ResourceItem, AsyncCollection
 from aiopenapi3_redfish.oem import Oem, Detour
+
+import aiopenapi3_redfish.actions
+
+
+@Detour("#Manager..Manager/Actions/Oem")
+class ManagerActionsOem(aiopenapi3_redfish.actions.Oem):
+    def ExportSystemConfiguration(self) -> aiopenapi3_redfish.actions.Action:
+        v = self._v["#OemManager.ExportSystemConfiguration"]
+        cls = self._createAction(v["target"], v.get("title", ""), v)
+        return cls
 
 
 @Detour("#Manager..Manager/Links/Oem")
 class ManagerLinksOem(ResourceItem):
-    pass
+    def __init__(self, root, path, value):
+        super().__init__(root, path, value)
 
 
 @Detour("#DellOem..DellOemLinks")
@@ -68,8 +79,8 @@ class DellAttributes(AsyncResourceRoot):
 @Detour(
     "/redfish/v1/Managers/{ManagerId}/Actions/Oem/EID_674_Manager.ExportSystemConfiguration",
 )
-class EID_674_Manager_ExportSystemConfiguration(AsyncActions.Action):
-    async def export(self, Format="XML", Use="Clone", FileName="test", Target="ALL"):
+class EID_674_Manager_ExportSystemConfiguration(aiopenapi3_redfish.actions.Action):
+    async def __call__(self, Format="XML", Use="Clone", FileName="test", Target="ALL"):
         tShareParameters = self.data.model_fields["ShareParameters"].annotation
         data = self.data(
             ExportFormat=Format,
@@ -78,25 +89,28 @@ class EID_674_Manager_ExportSystemConfiguration(AsyncActions.Action):
             ShareParameters=tShareParameters(FileName=FileName, Target=[Target]),
         )
 
-        r = await self.__call__(data=data.model_dump(exclude_unset=True))
+        r = await super().__call__(data=data.model_dump(exclude_unset=True))
         return r
+
+    async def export(self):
+        return await self.__call__()
 
 
 @Detour(
     "/redfish/v1/Managers/{ManagerId}/Actions/Oem/EID_674_Manager.ImportSystemConfiguration",
     "/redfish/v1/Managers/{ManagerId}/Actions/Oem/EID_674_Manager.ImportSystemConfigurationPreview",
 )
-class EID_674_Manager_ImportSystemConfiguration(AsyncActions.Action):
+class EID_674_Manager_ImportSystemConfiguration(aiopenapi3_redfish.actions.Action):
     pass
 
 
 @Detour("/redfish/v1/UpdateService/Actions/Oem/DellUpdateService.Install")
-class DellUpdateService(AsyncActions.Action):
+class DellUpdateService(aiopenapi3_redfish.actions.Action):
     pass
 
 
 @Detour("/redfish/v1/UpdateService/Actions/Oem/DellTelemetryService.SubmitMetricValue")
-class DellTelemetryService(AsyncActions.Action):
+class DellTelemetryService(aiopenapi3_redfish.actions.Action):
     pass
 
 
@@ -104,7 +118,7 @@ class DellTelemetryService(AsyncActions.Action):
     "/redfish/v1/Managers/{ManagerId}/Actions/Oem/DellManager.ResetToDefaults",
     "/redfish/v1/Managers/{ManagerId}/Actions/Oem/DellManager.SetCustomDefaults",
 )
-class DellManager(AsyncActions.Action):
+class DellManager(aiopenapi3_redfish.actions.Action):
     pass
 
 
@@ -117,4 +131,5 @@ class DellOem(Oem):
         DellManager,
         ManagerLinksOem,
         DellOemLinks,
+        ManagerActionsOem,
     ]

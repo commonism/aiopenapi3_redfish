@@ -9,14 +9,21 @@ from .odata import ResourceType
 def Detour(*patterns):
     def decorator(f):
         p = "_detour"
-        setattr(f, p, (m := getattr(f, p, set())))
+        if (m := getattr(f, p, None)) is None:
+            m = set()
+            setattr(f, p, m)
         m.update(frozenset(patterns))
         return f
 
     return decorator
 
 
-def splitTypeDetour(type_):
+def splitTypeDetour(type_: str):
+    """
+
+    :param type_: #name.version.name/path
+    :return: (#name.version.name, '/{path}')
+    """
     try:
         i = type_.index("/")
         base = type_[:i]
@@ -27,7 +34,7 @@ def splitTypeDetour(type_):
     return base, path
 
 
-class Oem:
+class Lookup:
     detour: []
 
     def __init__(self):
@@ -35,7 +42,8 @@ class Oem:
         self._context_map = collections.defaultdict(lambda: dict())
         for i in self.detour:
             m: str
-            for m in i._detour:
+            detour = getattr(i, "_detour")
+            for m in detour:
                 if m[0] == "#":
                     base, path = splitTypeDetour(m)
                     self._context_map[base][path] = i
@@ -59,3 +67,32 @@ class Oem:
             return None
         parameters, route, *_ = r
         return parameters["cls"]
+
+
+class Oem(Lookup):
+    pass
+
+
+import aiopenapi3_redfish.actions
+
+
+class Defaults(Lookup):
+    detour = [aiopenapi3_redfish.actions.Actions, aiopenapi3_redfish.actions.Oem]
+
+
+class Mapping:
+    def __init__(self, oem=None, defaults=None):
+        self._oem = oem
+        self._defaults = defaults
+
+    def classFromResourceType(self, odata_type_: str, path: str):
+        for i in self._oem, self._defaults:
+            if (v := i.classFromResourceType(odata_type_, path)) is not None:
+                return v
+        return None
+
+    def classFromRoute(self, url: str):
+        for i in self._oem, self._defaults:
+            if (v := i.classFromRoute(url)) is not None:
+                return v
+        return None
