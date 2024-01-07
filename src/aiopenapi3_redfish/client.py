@@ -12,19 +12,18 @@ from aiopenapi3.loader import ChainLoader
 from aiopenapi3_redfish.errors import RedfishException
 from aiopenapi3_redfish.oem import Oem
 
-from .service import (
-    AsyncAccountService,
-    AsyncUpdateService,
-    AsyncTelemetryService,
-    AsyncCertificateService,
-    AsyncSessionService,
-    AsyncEventService,
-    AsyncTaskService,
-)
-from .manager import Managers
-
+from .serviceroot import AsyncServiceRoot
 
 if typing.TYPE_CHECKING:
+    from .service import (
+        AsyncAccountService,
+        AsyncUpdateService,
+        AsyncTelemetryService,
+        AsyncCertificateService,
+        AsyncSessionService,
+        AsyncEventService,
+        AsyncTaskService,
+    )
     from aiopenapi3.plugin import Plugin
     from aiopenapi3.loader import Loader
 
@@ -52,8 +51,7 @@ class AsyncClient:
     def __init__(self, config):
         self.config = config
         self.api = self.createAPI(config)
-        self._serviceroot: "ServiceRoot" = None
-        self._accountservice: "AsyncAccountService" = None
+        self._serviceroot: AsyncServiceRoot = None
 
         self.routes = routes.Mapper()
         for i in self.api.paths.paths.keys():
@@ -63,20 +61,7 @@ class AsyncClient:
         self._RedfishError = self.api.components.schemas["RedfishError"].get_type()
 
     async def asyncInit(self):
-        self._serviceroot = await self.get("/redfish/v1")
-        self._accountservice = await AsyncAccountService.asyncInit(self, self._serviceroot.AccountService.odata_id_)
-        self._certificateservice = await AsyncCertificateService.asyncInit(
-            self, self._serviceroot.CertificateService.odata_id_
-        )
-        self._eventservice = await AsyncEventService.asyncInit(self, self._serviceroot.EventService.odata_id_)
-        self._updateservice = await AsyncUpdateService.asyncInit(self, self._serviceroot.UpdateService.odata_id_)
-        self._telemetryservice = await AsyncTelemetryService.asyncInit(
-            self, self._serviceroot.TelemetryService.odata_id_
-        )
-        self._managers = await Managers.asyncInit(self, self._serviceroot.Managers.odata_id_)
-        self._manager = await self._managers.Managers.first()
-        self._sessionservice = await AsyncSessionService.asyncInit(self, self._serviceroot.SessionService.odata_id_)
-        self._taskservice = await AsyncTaskService.asyncInit(self, self._serviceroot.Tasks.odata_id_)
+        self._serviceroot = await AsyncServiceRoot.asyncInit(self, "/redfish/v1")
 
     @classmethod
     def createAPI(cls, config):
@@ -130,35 +115,35 @@ class AsyncClient:
 
     @property
     def AccountService(self) -> "AsyncAccountService":
-        return self._accountservice
+        return self._serviceroot.AccountService
 
     @property
     def CertificateService(self) -> "AsyncCertificateService":
-        return self._certificateservice
+        return self._serviceroot.CertificateService
 
     @property
     def EventService(self) -> "AsyncEventService":
-        return self._eventservice
+        return self._serviceroot.EventService
 
     @property
     def Manager(self) -> "Manager":
-        return self._manager
+        return self._serviceroot.Manager
 
     @property
     def SessionService(self) -> "AsyncSessionService":
-        return self._sessionservice
+        return self._serviceroot.SessionService
 
     @property
     def TaskService(self) -> "AsyncTaskService":
-        return self._taskservice
+        return self._serviceroot.TaskService
 
     @property
-    def TelemetryService(self) -> "AsyncUpdateService":
-        return self._telemetryservice
+    def TelemetryService(self) -> "AsyncTelemetryService":
+        return self._serviceroot.TelemetryService
 
     @property
     def UpdateService(self) -> "AsyncUpdateService":
-        return self._updateservice
+        return self._serviceroot.UpdateService
 
     @property
     def Vendor(self):

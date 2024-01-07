@@ -20,16 +20,17 @@ class Action:
     def data(self):
         return self.req.data.get_type()
 
-    async def __call__(self, *args, parameters: Optional[Dict[str, str]] = None, **kwargs):
+    async def __call__(self, *args, parameters: Optional[Dict[str, str]] = None, data=None, **kwargs):
         if parameters:
             parameters.update(self.parameters)
         else:
             parameters = self.parameters
-        r = await self.req(*args, parameters=parameters, **kwargs)
+        r = await self.req(*args, parameters=parameters, data=data, **kwargs)
         return r
 
 
 @Detour("#CertificateService..CertificateService/Actions")
+@Detour("#Chassis._.Chassis/Actions")
 @Detour("#EventService..EventService/Actions")
 @Detour("#Manager..Manager/Actions")
 @Detour("#TelemetryService..TelemetryService/Actions")
@@ -41,12 +42,12 @@ class Actions(ResourceItem):
         cls.__detour = set()
         return super().__new__(cls)
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: str) -> Action:
         name = aiopenapi3.model.Model.nameof(key)
         v = getattr(self._v, name)
         return self._createAction(v.target, v.title, v.model_extra)
 
-    def _createAction(self, target, title, fields):
+    def _createAction(self, target, title, fields) -> Action:
         parameters, url = self._root._client.routeOf(target)
         type_ = self._root._client._mapping.classFromRoute(target) or Action
         r = type_(self._root._client, url, parameters, target, title, fields)
@@ -61,6 +62,6 @@ class Actions(ResourceItem):
 class Oem(Actions):
     _detour = None
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: str) -> Action:
         v = self._v.model_extra[key]
         return self._createAction(v["target"], v.get("title", None), v)
