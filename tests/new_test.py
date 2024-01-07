@@ -93,6 +93,10 @@ async def client(description_documents, target, auth):
                 ("/redfish/v1/CertificateService", ["get"]),
                 (re.compile(r"^/redfish/v1/CertificateService/Actions/.*$"), ["post"]),
                 #
+                # Chassis
+                #
+                ("/redfish/v1/Chassis", ["get"]),
+                #
                 # EventService
                 #
                 ("/redfish/v1/EventService", ["get", "patch"]),
@@ -123,6 +127,10 @@ async def client(description_documents, target, auth):
                 ("/redfish/v1/SessionService", ["get"]),
                 ("/redfish/v1/SessionService/Sessions", ["get", "post"]),
                 ("/redfish/v1/SessionService/Sessions/{SessionId}", ["get", "delete"]),
+                #
+                # Systems
+                #
+                ("/redfish/v1/Systems", ["get"]),
                 #
                 # TaskService
                 #
@@ -242,9 +250,7 @@ async def test_EventService_SSE(client, capsys):
 
     async def sendtestevent():
         for i in range(3):
-            action = client.EventService.Actions["#EventService.SubmitTestEvent"]
-            data = action.data.model_validate(dict(EventType="Alert", MessageId="AMP0300"))
-            r = await action(data=data.model_dump(exclude_unset=True, by_alias=True))
+            await client.EventService.SubmitTestEvent(EventType="Alert", MessageId="AMP0300")
             asyncio.sleep(5)
 
     task = asyncio.create_task(sendtestevent())

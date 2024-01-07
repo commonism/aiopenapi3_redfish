@@ -1,20 +1,25 @@
-from typing import List
-
 import yarl
 
 from .base import AsyncResourceRoot, AsyncCollection
 
 
-class Managers(AsyncResourceRoot):
-    class Manager_(AsyncResourceRoot):
-        pass
+class AsyncManager(AsyncResourceRoot):
+    async def Reset(self):
+        """
+        '#Manager.Reset':
+          ResetType@Redfish.AllowableValues:
+          - GracefulRestart
+          target: /redfish/v1/Managers/iDRAC.Embedded.1/Actions/Manager.Reset
+        """
+        raise NotImplementedError()
 
-    def __init__(self, client: "Client", odata_id_: str):
-        AsyncResourceRoot.__init__(self, client, odata_id_)
-        self.Managers: List["Managers.Manager_"] = list()
+    async def ResetToDefaults(self):
+        """
+        '#Manager.ResetToDefaults':
+          ResetType@Redfish.AllowableValues:
+          - ResetAll
+          - PreserveNetworkAndUsers
+          target: /redfish/v1/Managers/iDRAC.Embedded.1/Actions/Manager.ResetToDefaults
 
-    @classmethod
-    async def asyncInit(cls, client: "Client", odata_id_: str):
-        obj = await super().asyncInit(client, odata_id_)
-        obj.Managers = await AsyncCollection[Managers.Manager_]().asyncInit(client, obj._v.odata_id_)
-        return obj
+        """
+        raise NotImplementedError()
