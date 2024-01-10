@@ -2,8 +2,8 @@ from typing import Dict, Optional
 
 import aiopenapi3.model
 
-from .base import ResourceItem
-from .oem import Detour
+from aiopenapi3_redfish.base import ResourceItem
+from aiopenapi3_redfish.oem import Detour
 
 
 class Action:

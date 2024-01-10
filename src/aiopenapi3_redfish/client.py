@@ -10,12 +10,12 @@ from aiopenapi3 import OpenAPI
 from aiopenapi3.loader import ChainLoader
 
 from aiopenapi3_redfish.errors import RedfishException
-from aiopenapi3_redfish.oem import Oem
 
-from .serviceroot import AsyncServiceRoot
+from aiopenapi3_redfish.base import AsyncResourceRoot
+
 
 if typing.TYPE_CHECKING:
-    from .service import (
+    from aiopenapi3_redfish.entities.service import (
         AsyncAccountService,
         AsyncUpdateService,
         AsyncTelemetryService,
@@ -24,6 +24,7 @@ if typing.TYPE_CHECKING:
         AsyncEventService,
         AsyncTaskService,
     )
+    from .serviceroot import AsyncServiceRoot
     from aiopenapi3.plugin import Plugin
     from aiopenapi3.loader import Loader
 
@@ -61,7 +62,7 @@ class AsyncClient:
         self._RedfishError = self.api.components.schemas["RedfishError"].get_type()
 
     async def asyncInit(self):
-        self._serviceroot = await AsyncServiceRoot.asyncInit(self, "/redfish/v1")
+        self._serviceroot = await AsyncResourceRoot.asyncNew(self, "/redfish/v1")
 
     @classmethod
     def createAPI(cls, config):
@@ -120,6 +121,10 @@ class AsyncClient:
     @property
     def CertificateService(self) -> "AsyncCertificateService":
         return self._serviceroot.CertificateService
+
+    @property
+    def Chassis(self) -> "AsyncChassis":
+        return self._serviceroot.Chassis
 
     @property
     def EventService(self) -> "AsyncEventService":

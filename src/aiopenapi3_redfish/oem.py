@@ -1,7 +1,6 @@
 import collections
 
 import routes
-import yarl
 
 from .odata import ResourceType
 
@@ -71,13 +70,6 @@ class Lookup:
 
 class Oem(Lookup):
     pass
-
-
-import aiopenapi3_redfish.actions
-
-
-class Defaults(Lookup):
-    detour = [aiopenapi3_redfish.actions.Actions, aiopenapi3_redfish.actions.Oem]
 
 
 class Mapping:

@@ -96,6 +96,14 @@ async def client(description_documents, target, auth):
                 # Chassis
                 #
                 ("/redfish/v1/Chassis", ["get"]),
+                ("/redfish/v1/Chassis/{ChassisId}", ["get"]),
+                ("/redfish/v1/Chassis/{ChassisId}/NetworkAdapters", ["get"]),
+                ("/redfish/v1/Chassis/{ChassisId}/NetworkAdapters/{NetworkAdapterId}", ["get"]),
+                ("/redfish/v1/Chassis/{ChassisId}/NetworkAdapters/{NetworkAdapterId}/NetworkPorts", ["get"]),
+                (
+                    "/redfish/v1/Chassis/{ChassisId}/NetworkAdapters/{NetworkAdapterId}/NetworkPorts/{NetworkPortId}",
+                    ["get"],
+                ),
                 #
                 # EventService
                 #
@@ -159,7 +167,8 @@ async def client(description_documents, target, auth):
         session_factory=non_validating_https,
     )
     client = AsyncClient(config)
-    from aiopenapi3_redfish.oem import Mapping, Defaults
+    from aiopenapi3_redfish.oem import Mapping
+    from aiopenapi3_redfish.entities import Defaults
 
     client._mapping = Mapping(oem=DellOem(), defaults=Defaults())
     await client.asyncInit()
@@ -360,3 +369,12 @@ async def test_Accounts(client, capsys):
     assert v.Enabled != r.Enabled
 
     await r.patch({"Enabled": False})
+
+
+@pytest.mark.asyncio
+async def test_Inventory(client, capsys):
+    chassis = await client.Chassis.index("System.Embedded.1")
+    async for iface in chassis.NetworkAdapters.list():
+        print(f"{iface.Manufacturer}/{iface.Model}")
+        async for port in iface.NetworkPorts.list():
+            print(f"\t{port.Id} {port.AssociatedNetworkAddresses} {port.LinkStatus=}")

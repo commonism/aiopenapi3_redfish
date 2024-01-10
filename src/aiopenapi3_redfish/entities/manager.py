@@ -1,6 +1,6 @@
 import yarl
 
-from .base import AsyncResourceRoot, AsyncCollection
+from aiopenapi3_redfish.base import AsyncResourceRoot, AsyncCollection
 
 
 class AsyncManager(AsyncResourceRoot):

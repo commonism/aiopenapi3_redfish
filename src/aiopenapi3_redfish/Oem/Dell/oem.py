@@ -5,14 +5,32 @@ import jq
 import yarl
 
 from aiopenapi3_redfish.base import AsyncResourceRoot, ResourceItem, AsyncCollection
+from aiopenapi3_redfish.serviceroot import AsyncServiceRoot
 from aiopenapi3_redfish.oem import Oem, Detour
 
-import aiopenapi3_redfish.actions
+import aiopenapi3_redfish.entities.actions
+
+from aiopenapi3_redfish.entities.manager import AsyncManager
+
+
+@Detour("/redfish/v1")
+@Detour("#ServiceRoot..ServiceRoot")
+class iDRACServiceRoot(AsyncServiceRoot):
+    async def asyncInit(self):
+        await super().asyncInit()
+
+        async for m in self.Managers.list():
+            if m.Id == "iDRAC.Embedded.1":
+                break
+        else:
+            raise KeyError("iDRAC.Embedded")
+        self.Manager = m
+        return self
 
 
 @Detour("#Manager..Manager/Actions/Oem")
-class ManagerActionsOem(aiopenapi3_redfish.actions.Oem):
-    def ExportSystemConfiguration(self) -> aiopenapi3_redfish.actions.Action:
+class ManagerActionsOem(aiopenapi3_redfish.entities.actions.Oem):
+    def ExportSystemConfiguration(self) -> aiopenapi3_redfish.entities.actions.Action:
         v = self._v["#OemManager.ExportSystemConfiguration"]
         cls = self._createAction(v["target"], v.get("title", ""), v)
         return cls
@@ -79,7 +97,7 @@ class DellAttributes(AsyncResourceRoot):
 @Detour(
     "/redfish/v1/Managers/{ManagerId}/Actions/Oem/EID_674_Manager.ExportSystemConfiguration",
 )
-class EID_674_Manager_ExportSystemConfiguration(aiopenapi3_redfish.actions.Action):
+class EID_674_Manager_ExportSystemConfiguration(aiopenapi3_redfish.entities.actions.Action):
     async def __call__(self, Format="XML", Use="Clone", FileName="test", Target="ALL"):
         tShareParameters = self.data.model_fields["ShareParameters"].annotation
         data = self.data(
@@ -100,17 +118,17 @@ class EID_674_Manager_ExportSystemConfiguration(aiopenapi3_redfish.actions.Actio
     "/redfish/v1/Managers/{ManagerId}/Actions/Oem/EID_674_Manager.ImportSystemConfiguration",
     "/redfish/v1/Managers/{ManagerId}/Actions/Oem/EID_674_Manager.ImportSystemConfigurationPreview",
 )
-class EID_674_Manager_ImportSystemConfiguration(aiopenapi3_redfish.actions.Action):
+class EID_674_Manager_ImportSystemConfiguration(aiopenapi3_redfish.entities.actions.Action):
     pass
 
 
 @Detour("/redfish/v1/UpdateService/Actions/Oem/DellUpdateService.Install")
-class DellUpdateService(aiopenapi3_redfish.actions.Action):
+class DellUpdateService(aiopenapi3_redfish.entities.actions.Action):
     pass
 
 
 @Detour("/redfish/v1/UpdateService/Actions/Oem/DellTelemetryService.SubmitMetricValue")
-class DellTelemetryService(aiopenapi3_redfish.actions.Action):
+class DellTelemetryService(aiopenapi3_redfish.entities.actions.Action):
     pass
 
 
@@ -118,12 +136,13 @@ class DellTelemetryService(aiopenapi3_redfish.actions.Action):
     "/redfish/v1/Managers/{ManagerId}/Actions/Oem/DellManager.ResetToDefaults",
     "/redfish/v1/Managers/{ManagerId}/Actions/Oem/DellManager.SetCustomDefaults",
 )
-class DellManager(aiopenapi3_redfish.actions.Action):
+class DellManager(aiopenapi3_redfish.entities.actions.Action):
     pass
 
 
 class DellOem(Oem):
     detour = [
+        iDRACServiceRoot,
         DellAttributes,
         EID_674_Manager_ExportSystemConfiguration,
         DellUpdateService,

@@ -62,7 +62,7 @@ class AsyncResourceRoot(ResourceItem):
         return await self._client.delete(self._v.odata_id_, context=self)
 
     @classmethod
-    async def asyncInit(cls, client: "AsyncClient", odata_id_: str):
+    async def asyncNew(cls, client: "AsyncClient", odata_id_: str):
         value = await client.get(odata_id_)
 
         tcls = client._mapping.classFromResourceType(value.odata_type_, "/")
@@ -72,7 +72,12 @@ class AsyncResourceRoot(ResourceItem):
 
         if cls == AsyncResourceRoot or cls == ResourceItem:
             cls = tcls or rcls or cls
-        return cls(client, value)
+        r = cls(client, value)
+        await r.asyncInit()
+        return r
+
+    async def asyncInit(self):
+        pass
 
     def __repr__(self):
         return f"{self.__class__.__name__} {self._v!r}"
@@ -93,7 +98,7 @@ class AsyncCollection(typing.Generic[T], AsyncResourceRoot):
             self._T = typing.get_args(self.__orig_class__)[0]
         return self._T
 
-    async def asyncInit(self, client: "AsyncClient", odata_id_: str):
+    async def asyncNew(self, client: "AsyncClient", odata_id_: str):
         value = await client.get(odata_id_)
         super().__init__(client, value)
         self._data = self._v.Members
@@ -101,7 +106,7 @@ class AsyncCollection(typing.Generic[T], AsyncResourceRoot):
 
     async def first(self) -> T:
         i = self._data[0]
-        v = await self.T.asyncInit(self._client, i.odata_id_)
+        v = await self.T.asyncNew(self._client, i.odata_id_)
         return v
 
     async def refresh(self):
@@ -112,7 +117,7 @@ class AsyncCollection(typing.Generic[T], AsyncResourceRoot):
     async def list(self, skip_errors=True) -> typing.Generator:
         for i in self._data:
             try:
-                v = await self.T.asyncInit(self._client, i.odata_id_)
+                v = await self.T.asyncNew(self._client, i.odata_id_)
                 yield v
             except RedfishException as e:
                 if skip_errors:
@@ -120,4 +125,4 @@ class AsyncCollection(typing.Generic[T], AsyncResourceRoot):
                 raise e
 
     async def index(self, key):
-        return await self.T.asyncInit(self._client, f"{self._v.odata_id_}/{key}")
+        return await self.T.asyncNew(self._client, f"{self._v.odata_id_}/{key}")
