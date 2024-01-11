@@ -167,6 +167,10 @@ async def client(description_documents, target, auth):
                 ("/redfish/v1/UpdateService", ["get"]),
                 ("/redfish/v1/UpdateService/Actions/UpdateService.SimpleUpdate", ["post"]),
                 ("/redfish/v1/UpdateService/Actions/Oem/DellUpdateService.Install", ["post"]),
+                #
+                # Oem Reduce Safehouse
+                #
+                ("/redfish/oem", ["get"]),
             ),
         ],
         locations=[

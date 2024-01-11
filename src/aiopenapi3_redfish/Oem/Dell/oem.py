@@ -39,12 +39,10 @@ class ManagerActionsOem(aiopenapi3_redfish.entities.actions.Oem):
 @Detour("#DellOem..DellOemLinks")
 class DellOemLinks(ResourceItem):
     def __init__(self, root, path, value):
-        data = (
-            root._client.api._documents[yarl.URL("/redfish/v1/Schemas/DellOem.v1_3_0.yaml")]
-            .components.schemas["DellOem_v1_3_0_DellOemLinks"]
-            .get_type()
-            .model_validate(value)
-        )
+        cls = root._client.api._documents[yarl.URL("/redfish/v1/Schemas/DellOem.v1_3_0.yaml")].components.schemas[
+            "DellOem_v1_3_0_DellOemLinks"
+        ]
+        data = cls.get_type().model_validate(value)
         super().__init__(root, yarl.URL(path), data)
 
 

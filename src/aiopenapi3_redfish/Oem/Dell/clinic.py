@@ -1,5 +1,4 @@
 import inspect
-from pathlib import Path
 import copy
 import json
 import collections
@@ -82,63 +81,61 @@ paths:
             )
             ctx.document["paths"].update(data["paths"])
 
-            # inject DellOem in components to use
-            ctx.document["components"]["schemas"]["DellOem_DellOemLinks"] = {
-                "$ref": "/redfish/v1/Schemas/DellOem.v1_3_0.yaml#/components/schemas/DellOem_v1_3_0_DellOemLinks"
-            }
+            # inject operation referencing required Schemas
+            data = yaml.safe_load(
+                io.StringIO(
+                    """
+paths:
+  /redfish/oem:
+    get:
+      description: !
+      responses:
+        'default':
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: "/redfish/v1/Schemas/DellOem.yaml#/components/schemas/DellOem_DellOemLinks"
+          description: DellOem Links hosts the DellAttributes
+"""
+                )
+            )
+
+            ctx.document["paths"].update(data["paths"])
 
         if ctx.url.path == "/redfish/v1/Schemas/DellOem.v1_3_0.yaml":
             pass
 
-        if ctx.url.path == "/redfish/v1/Schemas/Resource.yaml":
-            for name, value in ctx.document["components"]["schemas"].items():
-                if "anyOf" not in value:
-                    continue
-
-                #                breakpoint()
-                def filtersensors(x):
-                    u = yarl.URL(x["$ref"])
-                    return Path(u.path).name.partition(".")[0] == "Resource" and Path(u.path).name not in [
-                        "Resource.v1_0_0.yaml",
-                        "Resource.v1_14_1.yaml",
-                    ]
-
-                l = [i for i in value["anyOf"] if i not in list(filter(filtersensors, value["anyOf"]))]
-                value["anyOf"] = l
-            return ctx
-
-        for name in [
-            "Capacity.v1_2_0.yaml",
-            "Control.v1_1_0.yaml",
-            "DellFRUAssembly.v1_1_0.yaml",
-            "DellManager.v1_3_0.yaml",
-            "DellTelemetryService.v1_2_0.yaml",
-            "DellMetricReportDefinition.v1_1_0.yaml",
-            "DellSecureBoot.v1_1_0.yaml",
-            "IPAddresses.v1_1_3.yaml",
-            "Message.v1_1_2.yaml",
-            "PCIeDevice.v1_9_0.yaml",
-            "Schedule.v1_2_2.yaml",
-            "SoftwareInventory.v1_7_0.yaml",
-            "StorageReplicaInfo.v1_4_0.yaml",  # StorageReplicaInfo.v1_3_0.yaml
-            "VLanNetworkInterface.v1_3_0.yaml",
-            "Sensor.v1_5_0.yaml",
+        # remove invalid (= file is missing) references from anyOf root schemas
+        for root, versions in [
+            ("Capacity", ("1_2_0",)),
+            ("Control", ("1_1_0",)),
+            ("DellFRUAssembly", ("1_1_0",)),
+            ("DellManager", ("1_3_0",)),
+            ("DellTelemetryService", ("1_2_0",)),
+            ("DellMetricReportDefinition", ("1_1_0",)),
+            ("DellSecureBoot", ("1_1_0",)),
+            ("DellOem", ("1_3_0",)),
+            ("IPAddresses", ("1_1_3",)),
+            ("Message", ("1_1_2",)),
+            ("PCIeDevice", ("1_9_0",)),
+            ("Schedule", ("1_2_2",)),
+            ("SoftwareInventory", ("1_7_0",)),
+            ("StorageReplicaInfo", ("1_4_0",)),
+            ("VLanNetworkInterface", ("1_3_0",)),
+            ("Sensor", ("1_5_0",)),
+            ("Resource", ("1_0_0", "1_14_1")),
         ]:
-            root, version, _ = name.split(".")
             if ctx.url.path == f"/redfish/v1/Schemas/{root}.yaml":
                 for name, value in ctx.document["components"]["schemas"].items():
                     if "anyOf" not in value:
                         continue
 
-                    def filtersensors(x):
+                    def versionMatch(x):
                         u = yarl.URL(x["$ref"])
-                        return (
-                            Path(u.path).name.partition(".")[0] == root
-                            and u.path != f"/redfish/v1/Schemas/{root}.{version}.yaml"
-                        )
+                        return u.path in [f"/redfish/v1/Schemas/{root}.v{version}.yaml" for version in versions]
 
-                    l = [i for i in value["anyOf"] if i not in list(filter(filtersensors, value["anyOf"]))]
-                    value["anyOf"] = l
+                    value["anyOf"] = list(filter(versionMatch, value["anyOf"]))
                 return ctx
 
         if ctx.url.path == "/redfish/v1/Schemas/DellManager.v1_3_0.yaml":
@@ -152,22 +149,22 @@ paths:
                 assert (
                     v["DelliDRACCard"]["$ref"] == "/redfish/v1/Schemas/odata-v4.yaml#/components/schemas/odata-v4_idRef"
                 )
-                v["DelliDRACCard"] = {
-                    "$ref": "/redfish/v1/Schemas/DelliDRACCard.yaml#/components/schemas/DelliDRACCard_DelliDRACCard"
-                }
+                v["DelliDRACCard"][
+                    "$ref"
+                ] = "/redfish/v1/Schemas/DelliDRACCard.yaml#/components/schemas/DelliDRACCard_DelliDRACCard"
 
         return ctx
 
 
 def Received(*patterns, method=None):
-    return Routes("_received", *patterns, method=method)
+    return _Routes("_received", *patterns, method=method)
 
 
 def Parsed(*patterns, method=None):
-    return Routes("_parsed", *patterns, method=method)
+    return _Routes("_parsed", *patterns, method=method)
 
 
-def Routes(_route, *patterns, method=None):
+def _Routes(_route, *patterns, method=None):
     def x(f):
         p = _route
         setattr(f, p, (m := getattr(f, p, set())))
