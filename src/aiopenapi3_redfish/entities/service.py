@@ -1,6 +1,5 @@
 import asyncio
 
-from typing import Optional
 
 import aiopenapi3_redfish.entities.actions
 from aiopenapi3_redfish.base import AsyncResourceRoot, AsyncCollection
@@ -9,28 +8,16 @@ from aiopenapi3_redfish.oem import Detour
 
 @Detour("/redfish/v1/AccountService")
 @Detour("#AccountService..AccountService")
+@Detour("#ServiceRoot..ServiceRoot/AccountService")
 class AsyncAccountService(AsyncResourceRoot):
     class ManagerAccount(AsyncResourceRoot):
         async def setPassword(self, password):
             return await self.patch(data={"Password": password})
 
-    def __init__(self, client: "Client", odata_id_: str):
-        AsyncResourceRoot.__init__(self, client, odata_id_)
-        self.Accounts: "AsyncAccountService._Accounts" = None
-
-    @classmethod
-    async def asyncNew(cls, client: "Client", odata_id_: str):
-        obj = await super().asyncNew(client, odata_id_)
-
-    async def asyncInit(self):
-        self.Accounts = await AsyncCollection[AsyncAccountService.ManagerAccount]().asyncNew(
-            self._client, self._v.Accounts.odata_id_
-        )
-        return self
-
 
 @Detour("/redfish/v1/CertificateService")
 @Detour("#CertificateService..CertificateService")
+@Detour("#ServiceRoot..ServiceRoot/CertificateService")
 class AsyncCertificateService(AsyncResourceRoot):
     async def GenerateCSR(self):
         """
@@ -47,26 +34,9 @@ class AsyncCertificateService(AsyncResourceRoot):
         raise NotImplementedError()
 
 
-@Detour("#NetworkAdapter..NetworkAdapter")
-class NetworkAdapter(AsyncResourceRoot):
-    async def asyncInit(self):
-        super().asyncInit()
-        self.NetworkPorts = await AsyncCollection[AsyncResourceRoot]().asyncNew(
-            self._client, self._v.NetworkPorts.odata_id_
-        )
-        return self
-
-
 @Detour("/redfish/v1/Chassis/{ChassisId}")
 @Detour("#Chassis..Chassis")
 class AsyncChassis(AsyncResourceRoot):
-    async def asyncInit(self):
-        super().asyncInit()
-        self.NetworkAdapters = await AsyncCollection[NetworkAdapter]().asyncNew(
-            self._client, self._v.NetworkAdapters.odata_id_
-        )
-        return self
-
     async def Reset(self, ResetType: str):
         action: aiopenapi3_redfish.entities.actions.Action = self.Actions["#Chassis.Reset"]
         data = action.data.model_validate(dict(ResetType=ResetType))
@@ -75,6 +45,7 @@ class AsyncChassis(AsyncResourceRoot):
 
 @Detour("/redfish/v1/EventService")
 @Detour("#EventService..EventService")
+@Detour("#ServiceRoot..ServiceRoot/EventService")
 class AsyncEventService(AsyncResourceRoot):
     async def SubmitTestEvent(self, EventType: str = "Alert", MessageId: str = "AMP0300", **kwargs):
         action = self.Actions["#EventService.SubmitTestEvent"]
@@ -91,12 +62,14 @@ class AsyncFabric(AsyncResourceRoot):
 
 @Detour("/redfish/v1/JobService")
 @Detour("#JobService..JobService")
+@Detour("#ServiceRoot..ServiceRoot/JobService")
 class AsyncJobService(AsyncResourceRoot):
     pass
 
 
 @Detour("/redfish/v1/LicenseService")
 @Detour("#LicenseService..LicenseService")
+@Detour("#ServiceRoot..ServiceRoot/LicenseService")
 class AsyncLicenseService(AsyncResourceRoot):
     async def Install(self):
         """
@@ -107,10 +80,8 @@ class AsyncLicenseService(AsyncResourceRoot):
 
 @Detour("/redfish/v1/SessionService")
 @Detour("#SessionService..SessionService")
+@Detour("#ServiceRoot..ServiceRoot/SessionService")
 class AsyncSessionService(AsyncResourceRoot):
-    class AsyncSession(AsyncResourceRoot):
-        pass
-
     async def createSession(self):
         auth = self._client.api._security["basicAuth"]
         req = self._client.api._[("/redfish/v1/SessionService/Sessions", "post")]
@@ -124,19 +95,7 @@ class AsyncSessionService(AsyncResourceRoot):
         except KeyError:
             self._client.api.authenticate(None, basicAuth=self._client.config.auth)
             return None
-        return AsyncSessionService.AsyncSession(self._client, value)
-
-    @classmethod
-    async def asyncNew(cls, client: "Client", odata_id_: str):
-        obj = await super().asyncNew(client, odata_id_)
-        await obj.asyncInit()
-        return obj
-
-    async def asyncInit(self):
-        self.Sessions = await AsyncCollection[AsyncSessionService.AsyncSession]().asyncNew(
-            self._client, self._v.Sessions.odata_id_
-        )
-        return self
+        return AsyncResourceRoot(self._client, value)
 
 
 @Detour("/redfish/v1/Systems/{SystemId}")
@@ -150,22 +109,10 @@ class AsyncSystem(AsyncResourceRoot):
 
 @Detour("/redfish/v1/TaskService")
 @Detour("#TaskService..TaskService")
+@Detour("#ServiceRoot..ServiceRoot/Tasks")
 class AsyncTaskService(AsyncResourceRoot):
     class AsyncTask(AsyncResourceRoot):
         pass
-
-    def __init__(self, client: "Client", odata_id_: str):
-        AsyncResourceRoot.__init__(self, client, odata_id_)
-        self.Tasks: Optional[AsyncCollection[AsyncTaskService.AsyncTask]] = None
-
-    @classmethod
-    async def asyncNew(cls, client: "Client", odata_id_: str):
-        obj = await super().asyncNew(client, odata_id_)
-        return obj
-
-    async def asyncInit(self):
-        self.Tasks = await AsyncCollection[AsyncTaskService.AsyncTask]().asyncNew(self._client, self._v.Tasks.odata_id_)
-        return self
 
     async def wait_for(self, TaskId: str, pollInterval: int = 7, maxWait: int = 700) -> AsyncTask:
         for i in range(maxWait // pollInterval):
@@ -181,6 +128,7 @@ class AsyncTaskService(AsyncResourceRoot):
 
 @Detour("/redfish/v1/TelemetryService")
 @Detour("#TelemetryService..TelemetryService")
+@Detour("#ServiceRoot..ServiceRoot/TelemetryService")
 class AsyncTelemetryService(AsyncResourceRoot):
     async def ClearMetricReports(self):
         """
@@ -206,6 +154,7 @@ class AsyncTelemetryService(AsyncResourceRoot):
 
 @Detour("/redfish/v1/UpdateService")
 @Detour("#UpdateService._.UpdateService")
+@Detour("#ServiceRoot..ServiceRoot/UpdateService")
 class AsyncUpdateService(AsyncResourceRoot):
     async def SimpleUpdate(self):
         """

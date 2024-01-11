@@ -25,22 +25,24 @@ class ResourceItem:
         except AttributeError:
             raise AttributeError(name)
         except RecursionError:
-            pass
-        if isinstance(v, (BaseModel, dict, list)):
-            path = "/"
-            root = self._root
-            if isinstance(v, BaseModel) and "odata_type_" in v.model_fields:
-                odata_type = v.odata_type_
-            elif isinstance(v, dict) and "@odata.type" in v:
-                odata_type = v["@odata.type"]
-            else:
-                path = self._path / name
-                odata_type = root._v.odata_type_
-            if (cls := self._root._client._mapping.classFromResourceType(odata_type, str(path))) is not None:
-                return cls(root, path, v)
-            else:
-                if isinstance(v, BaseModel):
-                    return ResourceItem(root, path, v)
+            print("X")
+
+        if not isinstance(v, (BaseModel, dict, list)):
+            return v
+
+        path = "/"
+        root = self._root
+        if isinstance(v, BaseModel) and "odata_type_" in v.model_fields:
+            odata_type = v.odata_type_
+        elif isinstance(v, dict) and "@odata.type" in v:
+            odata_type = v["@odata.type"]
+        else:  # isinstance(v, list):
+            path = self._path / name
+            odata_type = self._v.model_extra.get("@odata.type", root._v.odata_type_)
+        if (cls := self._root._client._mapping.classFromResourceType(odata_type, str(path))) is not None:
+            return cls(root, path, v)
+        elif isinstance(v, BaseModel):
+            return ResourceItem(root, path, v)
         return v
 
     def __repr__(self):
@@ -77,7 +79,33 @@ class AsyncResourceRoot(ResourceItem):
         return r
 
     async def asyncInit(self):
-        pass
+        if (items := self._client._mapping.classFromResourceType(self.odata_type_, None)) is None:
+            return
+
+        for field in items.keys():
+            if "/" in (attr := field[1:]) or field == "/":
+                continue
+            if (cls := self._client._mapping.classFromResourceType(self.odata_type_, field)) is None:
+                continue
+
+            #            from .entities.actions import Actions
+            #            if issubclass(cls, Actions):
+            #                continue
+
+            if issubclass(cls, (AsyncCollection, AsyncResourceRoot)):
+                if attr == "":
+                    at = getattr(self._v, "odata_id_")
+                else:
+                    at = getattr(self._v, attr).odata_id_
+                if issubclass(cls, AsyncCollection):
+                    value = await cls().asyncNew(self._client, at)
+                elif issubclass(cls, AsyncResourceRoot) or cls == AsyncResourceRoot:
+                    value = await cls.asyncNew(self._client, at)
+            elif issubclass(cls, ResourceItem) or cls == ResourceItem:
+                value = cls(self, yarl.URL(field), getattr(self._v, attr))
+            else:
+                continue
+            setattr(self, attr, value)
 
     def __repr__(self):
         return f"{self.__class__.__name__} {self._v!r}"
@@ -95,7 +123,13 @@ class AsyncCollection(typing.Generic[T], AsyncResourceRoot):
     @property
     def T(self):
         if self._T is None:
-            self._T = typing.get_args(self.__orig_class__)[0]
+            if issubclass(self.__class__, AsyncCollection) and self.__class__ != AsyncCollection:
+                self._T = typing.get_args(self.__class__.__orig_bases__[0])[0]
+            elif isinstance(self, AsyncCollection):
+                self._T = typing.get_args(self.__orig_class__)[0]
+            else:
+                self._T = AsyncResourceRoot
+
         return self._T
 
     async def asyncNew(self, client: "AsyncClient", odata_id_: str):

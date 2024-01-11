@@ -36,25 +36,16 @@ class ManagerActionsOem(aiopenapi3_redfish.entities.actions.Oem):
         return cls
 
 
-@Detour("#Manager..Manager/Links/Oem")
-class ManagerLinksOem(ResourceItem):
-    def __init__(self, root, path, value):
-        super().__init__(root, path, value)
-
-
 @Detour("#DellOem..DellOemLinks")
 class DellOemLinks(ResourceItem):
-    @property
-    def DellAttributes(self):
-        cls = (
-            self._root._client.api._documents[yarl.URL("/redfish/v1/Schemas/odata-v4.yaml")]
-            .components.schemas["odata-v4_idRef"]
+    def __init__(self, root, path, value):
+        data = (
+            root._client.api._documents[yarl.URL("/redfish/v1/Schemas/DellOem.v1_3_0.yaml")]
+            .components.schemas["DellOem_v1_3_0_DellOemLinks"]
             .get_type()
+            .model_validate(value)
         )
-        data = [cls.model_validate(i) for i in self._v["DellAttributes"]]
-
-        c = AsyncCollection[DellAttributes](client=self._root._client, data=data)
-        return c
+        super().__init__(root, yarl.URL(path), data)
 
 
 @Detour(
@@ -92,6 +83,13 @@ class DellAttributes(AsyncResourceRoot):
 
     def filter(self, jq_):
         return jq.compile(jq_).input(self.list())
+
+
+@Detour("#DellOem..DellOemLinks/DellAttributes")
+class DellAttributesCollection(AsyncCollection[DellAttributes]):
+    def __init__(self, root, path, value):
+        super().__init__(root._client, None)
+        self._data = value
 
 
 @Detour(
@@ -143,12 +141,13 @@ class DellManager(aiopenapi3_redfish.entities.actions.Action):
 class DellOem(Oem):
     detour = [
         iDRACServiceRoot,
+        DellAttributesCollection,
         DellAttributes,
         EID_674_Manager_ExportSystemConfiguration,
         DellUpdateService,
         DellTelemetryService,
         DellManager,
-        ManagerLinksOem,
+        #        ManagerLinksOem,
         DellOemLinks,
         ManagerActionsOem,
     ]

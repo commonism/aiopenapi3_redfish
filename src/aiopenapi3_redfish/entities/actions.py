@@ -38,10 +38,6 @@ class Action:
 class Actions(ResourceItem):
     _detour = None
 
-    def __new__(cls, *args, **kwargs):
-        cls.__detour = set()
-        return super().__new__(cls)
-
     def __getitem__(self, key: str) -> Action:
         name = aiopenapi3.model.Model.nameof(key)
         v = getattr(self._v, name)

@@ -16,6 +16,18 @@ from .service import (
     AsyncUpdateService,
 )
 
+from .collections import (
+    ChassisCollection,
+    FabricCollection,
+    SessionsCollection,
+    SystemsCollection,
+    TaskCollection,
+    ManagerAccountCollection,
+    ManagerCollection,
+    NetworkAdapterCollection,
+    NetworkPortCollection,
+)
+
 
 class Defaults(Lookup):
     detour = [
@@ -33,4 +45,13 @@ class Defaults(Lookup):
         AsyncTaskService,
         AsyncTelemetryService,
         AsyncUpdateService,
+        ChassisCollection,
+        FabricCollection,
+        SessionsCollection,
+        SystemsCollection,
+        TaskCollection,
+        ManagerAccountCollection,
+        ManagerCollection,
+        NetworkAdapterCollection,
+        NetworkPortCollection,
     ]

@@ -83,7 +83,12 @@ paths:
             ctx.document["paths"].update(data["paths"])
 
             # inject DellOem in components to use
-        #            ctx.document["components"]["schemas"]["DellOem_DellOemLinks"] = {"$ref":"DellOem.v1_3_0.yaml#/components/schemas/DellOem_v1_3_0_DellOemLinks"}
+            ctx.document["components"]["schemas"]["DellOem_DellOemLinks"] = {
+                "$ref": "/redfish/v1/Schemas/DellOem.v1_3_0.yaml#/components/schemas/DellOem_v1_3_0_DellOemLinks"
+            }
+
+        if ctx.url.path == "/redfish/v1/Schemas/DellOem.v1_3_0.yaml":
+            pass
 
         if ctx.url.path == "/redfish/v1/Schemas/Resource.yaml":
             for name, value in ctx.document["components"]["schemas"].items():
@@ -107,6 +112,9 @@ paths:
             "Control.v1_1_0.yaml",
             "DellFRUAssembly.v1_1_0.yaml",
             "DellManager.v1_3_0.yaml",
+            "DellTelemetryService.v1_2_0.yaml",
+            "DellMetricReportDefinition.v1_1_0.yaml",
+            "DellSecureBoot.v1_1_0.yaml",
             "IPAddresses.v1_1_3.yaml",
             "Message.v1_1_2.yaml",
             "PCIeDevice.v1_9_0.yaml",

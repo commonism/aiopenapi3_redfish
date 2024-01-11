@@ -12,7 +12,7 @@ import httpx
 import pytest
 import pytest_asyncio
 
-from aiopenapi3.extra import Reduce
+from aiopenapi3.extra import Reduce, Cull
 from aiopenapi3.loader import RedirectLoader
 
 from aiopenapi3_redfish.client import Config, AsyncClient
@@ -75,7 +75,6 @@ async def client(description_documents, target, auth):
             ExposeResponseHeaders(),
             OemDocument(t),
             OemMessage(),
-            #            OemInit(),
             Reduce(
                 #
                 # ServiceRoot
@@ -116,6 +115,18 @@ async def client(description_documents, target, auth):
                     ["post"],
                 ),
                 ("/redfish/v1/SSE", ["get"]),
+                #
+                # Fabrics
+                #
+                ("/redfish/v1/Fabrics", ["get"]),
+                #
+                # JobService
+                #
+                ("/redfish/v1/JobService", ["get"]),
+                #
+                # LicenseService
+                #
+                ("/redfish/v1/LicenseService", ["get"]),
                 #
                 # Managers
                 #
@@ -298,8 +309,8 @@ async def test_EventService_SSE(client, capsys):
 async def test_Oem(client):
     import aiopenapi3_redfish.Oem.Dell.oem
 
-    links = client.Manager.Links.Oem
-    assert isinstance(links, aiopenapi3_redfish.Oem.Dell.oem.ManagerLinksOem)
+    #    links = client.Manager.Links.Oem
+    #    assert isinstance(links, aiopenapi3_redfish.Oem.Dell.oem.ManagerLinksOem)
 
     actions = client.Manager.Actions.Oem
     assert isinstance(actions, aiopenapi3_redfish.Oem.Dell.oem.ManagerActionsOem)
@@ -313,8 +324,8 @@ async def test_DellAttributes(client, capsys):
     assert obj
     obj = oem.Dell
     assert obj
-    obj = oem.Dell.DellAttributes
-    async for i in oem.Dell.DellAttributes.list():
+    obj = obj.DellAttributes
+    async for i in obj.list():
         print(i)
     return None
 

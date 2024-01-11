@@ -53,8 +53,14 @@ class Lookup:
         t = ResourceType(odata_type_)
         for v in t.versioned, t.unversioned:
             try:
-                r = self._context_map[v][path]
-                return r
+                if v in self._context_map:
+                    if path is not None:
+                        r = self._context_map[v][path]
+                    else:
+                        r = self._context_map[v]
+                    return r
+                else:
+                    raise KeyError(v)
             except KeyError:
                 continue
         return None
@@ -78,10 +84,15 @@ class Mapping:
         self._defaults = defaults
 
     def classFromResourceType(self, odata_type_: str, path: str):
+        r = dict()
         for i in self._oem, self._defaults:
             if (v := i.classFromResourceType(odata_type_, path)) is not None:
-                return v
-        return None
+                if path:
+                    return v
+                r.update(v)
+        if path or not r:
+            return None
+        return r
 
     def classFromRoute(self, url: str):
         for i in self._oem, self._defaults:
