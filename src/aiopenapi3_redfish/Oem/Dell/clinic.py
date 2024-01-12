@@ -2,6 +2,8 @@ import inspect
 import copy
 import json
 import collections
+import yaml
+import io
 
 import yarl
 
@@ -9,12 +11,12 @@ import aiopenapi3
 import aiopenapi3.plugin
 
 
-class Document(aiopenapi3.plugin.Document):
+class _DocumentBase(aiopenapi3.plugin.Document):
     def __init__(self, url):
         self._url = url
         super().__init__()
 
-    def parsed(self, ctx):
+    def parsed(self, ctx: aiopenapi3.plugin.Document.Context) -> aiopenapi3.plugin.Document.Context:
         if str(ctx.url) == self._url:
             # mangle the Task refs in the loaded openapi.yaml
             for k, v in ctx.document["paths"].items():
@@ -53,9 +55,6 @@ class Document(aiopenapi3.plugin.Document):
             """
             SSE url
             """
-            import yaml
-            import io
-
             data = yaml.safe_load(
                 io.StringIO(
                     """
@@ -103,29 +102,11 @@ paths:
 
             ctx.document["paths"].update(data["paths"])
 
-        if ctx.url.path == "/redfish/v1/Schemas/DellOem.v1_3_0.yaml":
-            pass
+        return ctx
 
-        # remove invalid (= file is missing) references from anyOf root schemas
-        for root, versions in [
-            ("Capacity", ("1_2_0",)),
-            ("Control", ("1_1_0",)),
-            ("DellFRUAssembly", ("1_1_0",)),
-            ("DellManager", ("1_3_0",)),
-            ("DellTelemetryService", ("1_2_0",)),
-            ("DellMetricReportDefinition", ("1_1_0",)),
-            ("DellSecureBoot", ("1_1_0",)),
-            ("DellOem", ("1_3_0",)),
-            ("IPAddresses", ("1_1_3",)),
-            ("Message", ("1_1_2",)),
-            ("PCIeDevice", ("1_9_0",)),
-            ("Schedule", ("1_2_2",)),
-            ("SoftwareInventory", ("1_7_0",)),
-            ("StorageReplicaInfo", ("1_4_0",)),
-            ("VLanNetworkInterface", ("1_3_0",)),
-            ("Sensor", ("1_5_0",)),
-            ("Resource", ("1_0_0", "1_14_1")),
-        ]:
+    def removeInvalidVersions(self, ctx, data):
+        """remove invalid (= file is missing) references from anyOf root schemas"""
+        for root, versions in data:
             if ctx.url.path == f"/redfish/v1/Schemas/{root}.yaml":
                 for name, value in ctx.document["components"]["schemas"].items():
                     if "anyOf" not in value:
@@ -136,14 +117,13 @@ paths:
                         return u.path in [f"/redfish/v1/Schemas/{root}.v{version}.yaml" for version in versions]
 
                     value["anyOf"] = list(filter(versionMatch, value["anyOf"]))
-                return ctx
+        return ctx
 
-        if ctx.url.path == "/redfish/v1/Schemas/DellManager.v1_3_0.yaml":
-            """
-            DelliDRACCard correction …
-            """
-            if "DellManager_v1_3_0_DellManager" in ctx.document["components"]["schemas"]:
-                v = ctx.document["components"]["schemas"]["DellManager_v1_3_0_DellManager"]["properties"]
+    def fixDellManager(self, ctx):
+        if ctx.url.path.startswith("/redfish/v1/Schemas/DellManager.v"):
+            root, _, version = Path(ctx.url.path).stem.partition(".")
+            if (e := f"{root}_{version}_{root}") in ctx.document["components"]["schemas"]:
+                v = ctx.document["components"]["schemas"][e]["properties"]
 
                 # Fix DelliDRACCard $ref
                 assert (
@@ -153,6 +133,124 @@ paths:
                     "$ref"
                 ] = "/redfish/v1/Schemas/DelliDRACCard.yaml#/components/schemas/DelliDRACCard_DelliDRACCard"
 
+
+class Document_v6_10_00_00(_DocumentBase):
+    VERSIONS = [
+        ("Certificate", ("1_6_0",)),
+        ("DellEnclosure", ("1_1_0",)),
+        ("DellManager", ("1_3_0",)),
+        ("DellManagerAccount", ("1_0_0",)),
+        ("DellMetricReport", ("1_0_0",)),
+        ("DellMetricReportDefinition", ("1_1_0",)),
+        ("DellOem", ("1_3_0",)),
+        ("DellOemEnclosureChassis", ("1_0_0",)),
+        ("DellSecureBoot", ("1_1_0",)),
+        ("DellServiceRoot", ("1_0_0",)),
+        ("DellTelemetryService", ("1_2_0",)),
+        ("DelliDRACCard", ("1_1_0",)),
+        ("Event", ("1_7_1",)),
+        ("EventDestination", ("1_12_0",)),
+        ("ManagerAccount", ("1_9_0",)),
+        ("Message", ("1_1_2",)),
+        ("PCIeDevice", ("1_9_0",)),
+        ("Redundancy", ("1_4_1",)),
+        ("Resource", ("1_14_1",)),
+        ("SoftwareInventory", ("1_7_0",)),
+    ]
+
+    def parsed(self, ctx: aiopenapi3.plugin.Document.Context) -> aiopenapi3.plugin.Document.Context:
+        super().parsed(ctx)
+        self.removeInvalidVersions(ctx, self.VERSIONS)
+
+        return ctx
+
+
+class Document_v7_00_60_00(_DocumentBase):
+    VERSIONS = [
+        ("AccountService", ("1_13_0",)),
+        ("Certificate", ("1_7_0",)),
+        ("DellComputerSystem", ("1_2_0",)),
+        ("DellEnclosure", ("1_1_0",)),
+        ("DellLogEntry", ("1_1_0",)),
+        ("DellManager", ("1_4_0",)),
+        ("DellManagerAccount", ("1_0_0",)),
+        ("DellMetricReport", ("1_0_0",)),
+        ("DellMetricReportDefinition", ("1_1_0",)),
+        ("DellOem", ("1_3_0",)),
+        ("DellOemEnclosureChassis", ("1_0_0",)),
+        ("DellSecureBoot", ("1_1_0",)),
+        ("DellServiceRoot", ("1_0_0",)),
+        ("DellTelemetryService", ("1_2_0",)),
+        ("DelliDRACCard", ("1_1_0",)),
+        ("Event", ("1_8_0",)),
+        ("EventDestination", ("1_13_1",)),
+        ("ManagerAccount", ("1_10_0",)),
+        ("Message", ("1_1_2",)),
+        ("PCIeDevice", ("1_11_1",)),
+        ("Redundancy", ("1_4_1",)),
+        ("Resource", ("1_16_0",)),
+        ("SoftwareInventory", ("1_9_0",)),
+    ]
+
+    def parsed(self, ctx: aiopenapi3.plugin.Document.Context) -> aiopenapi3.plugin.Document.Context:
+        super().parsed(ctx)
+
+        self.removeInvalidVersions(ctx, self.VERSIONS)
+
+        self.fixDellManager(ctx)
+        return ctx
+
+
+from pathlib import Path
+from aiopenapi3.json import JSONReference
+
+
+class Document_vX(_DocumentBase):
+    """
+    Generate Version anyOf …
+    """
+
+    def __init__(self, url, directory):
+        super().__init__(url)
+        self.dir = directory
+
+    def removeInvalidVersions(self, ctx: aiopenapi3.plugin.Document.Context):
+        r = collections.defaultdict(lambda: list())
+        for name, value in ctx.document["components"]["schemas"].items():
+            if "anyOf" not in value:
+                continue
+
+            def fileExists(x):
+                return (self.dir / "OpenAPI" / Path(JSONReference.split(x["$ref"])[0]).name).exists()
+
+            new = list(filter(fileExists, value["anyOf"]))
+
+            # if (a:=set(JSONReference.split(i["$ref"])[0] for i in new)) != (b:=set(JSONReference.split(i["$ref"])[0] for i in value["anyOf"])):
+            #    print(f"{ctx.url}#{name} ({sorted(b - a)})")
+            #            if (a := set(JSONReference.split(i["$ref"])[0] for i in new)) != (b := set(JSONReference.split(i["$ref"])[0] for i in value["anyOf"])):
+            #                print(f"{ctx.url}#{name} {sorted(a)}")
+
+            for i in new:
+                name, _, version = (Path(JSONReference.split(i["$ref"])[0])).stem.partition(".v")
+                if name == "odata-v4":
+                    continue
+                if version not in r[name]:
+                    r[name].append(version)
+
+            value["anyOf"] = new
+
+        for name, versions in sorted(r.items(), key=lambda x: x[0]):
+            n = tuple([name, tuple(versions)])
+            print(n)
+
+    def parsed(self, ctx: aiopenapi3.plugin.Document.Context) -> aiopenapi3.plugin.Document.Context:
+        super().parsed(ctx)
+        if ctx.url != self._url:
+            path = Path(ctx.url.path)
+            if "." not in path.stem:
+                self.removeInvalidVersions(ctx)
+
+        self.fixDellManager(ctx)
         return ctx
 
 

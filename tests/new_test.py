@@ -19,7 +19,8 @@ from aiopenapi3_redfish.client import Config, AsyncClient
 from aiopenapi3_redfish.errors import RedfishException
 from aiopenapi3_redfish.clinic import RedfishDocument, PayloadAnnotations, ExposeResponseHeaders
 from aiopenapi3_redfish.Oem.Dell.clinic import (
-    Document as OemDocument,
+    Document_vX as OemDocumentGenerator,
+    Document_v7_00_60_00 as OemDocument,
     Message as OemMessage,
 )
 from aiopenapi3_redfish.Oem.Dell.oem import DellOem
@@ -73,6 +74,7 @@ async def client(description_documents, target, auth):
             RedfishDocument(t),
             PayloadAnnotations(),
             ExposeResponseHeaders(),
+            #            OemDocument(t, description_documents / "dell" / "iDRAC_7.00.60.00_A00"),
             OemDocument(t),
             OemMessage(),
             Reduce(
@@ -174,7 +176,7 @@ async def client(description_documents, target, auth):
             ),
         ],
         locations=[
-            RedirectLoader((v := description_documents / "dell" / "iDRAC_6.10.00.00_A00")),
+            RedirectLoader((v := description_documents / "dell" / "iDRAC_7.00.60.00_A00")),
             RedirectLoader(v / "OpenAPI"),
             RedirectLoader(description_documents / "swordfish-v1.2.4a"),
         ],
