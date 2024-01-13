@@ -45,6 +45,15 @@ class ResourceItem:
             return ResourceItem(root, path, v)
         return v
 
+    async def get(self, *args, **kwargs):
+        return await AsyncResourceRoot.asyncNew(self._root._client, self._v.odata_id_)
+
+    async def patch(self, *args, **kwargs):
+        return await self._root._client.patch(self._v.odata_id_, *args, context=self, **kwargs)
+
+    async def delete(self):
+        return await self._root._client.delete(self._v.odata_id_, context=self)
+
     def __repr__(self):
         return f"{self.__class__.__name__} {self._root} {self._path}"
 

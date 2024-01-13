@@ -152,6 +152,12 @@ async def client(description_documents, target, auth):
                 # Systems
                 #
                 ("/redfish/v1/Systems", ["get"]),
+                ("/redfish/v1/Systems/{ComputerSystemId}", ["get"]),
+                ("/redfish/v1/Systems/{ComputerSystemId}/Oem/Dell/DellSoftwareInstallationService", ["get"]),
+                (
+                    "/redfish/v1/Systems/{ComputerSystemId}/Oem/Dell/DellSoftwareInstallationService/Actions/DellSoftwareInstallationService.InstallFromRepository",
+                    ["post"],
+                ),
                 #
                 # TaskService
                 #
@@ -395,3 +401,18 @@ async def test_Inventory(client, capsys):
         print(f"{iface.Manufacturer}/{iface.Model}")
         async for port in iface.NetworkPorts.list():
             print(f"\t{port.Id} {port.AssociatedNetworkAddresses} {port.LinkStatus=}")
+
+
+@pytest.mark.asyncio
+async def test_DellSoftwareInstallationService(client, capsys):
+    system = await client.Systems.index("System.Embedded.1")
+    dsis = await system.Links.Oem.Dell.DellSoftwareInstallationService.get()
+    action = dsis.Actions["#DellSoftwareInstallationService.InstallFromRepository"]
+    data = action.data.model_validate(
+        {"ApplyUpdate": "False", "IgnoreCertWarning": "On", "IPAddress": "downloads.dell.com", "ShareType": "HTTPS"}
+    )
+    r = await action(data=data.model_dump(exclude_unset=True, by_alias=True))
+
+    # wait for the update
+    r = await client.TaskService.wait_for(r.Id)
+    return None

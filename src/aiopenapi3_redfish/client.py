@@ -109,7 +109,10 @@ class AsyncClient:
         req = self.api._[(routepath, method)]
         if parameters is not None:
             p.update(parameters)
-        r = await req(parameters=p, data=data, context=context)
+        return await self._request_send(req, p, data, context)
+
+    async def _request_send(self, req, parameters, data, context=None):
+        r = await req(parameters=parameters, data=data, context=context)
         if isinstance(r, self._RedfishError):
             raise RedfishException(r)
         return r
@@ -137,6 +140,10 @@ class AsyncClient:
     @property
     def SessionService(self) -> "AsyncSessionService":
         return self._serviceroot.SessionService
+
+    @property
+    def Systems(self) -> "Any":
+        return self._serviceroot.Systems
 
     @property
     def TaskService(self) -> "AsyncTaskService":

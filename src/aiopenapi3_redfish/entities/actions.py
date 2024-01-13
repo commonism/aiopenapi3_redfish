@@ -25,7 +25,7 @@ class Action:
             parameters.update(self.parameters)
         else:
             parameters = self.parameters
-        r = await self.req(*args, parameters=parameters, data=data, **kwargs)
+        r = await self._client._request_send(self.req, parameters=parameters, data=data)
         return r
 
 
@@ -35,6 +35,7 @@ class Action:
 @Detour("#Manager..Manager/Actions")
 @Detour("#TelemetryService..TelemetryService/Actions")
 @Detour("#UpdateService..UpdateService/Actions")
+@Detour("#DellSoftwareInstallationService..DellSoftwareInstallationService/Actions")
 class Actions(ResourceItem):
     _detour = None
 

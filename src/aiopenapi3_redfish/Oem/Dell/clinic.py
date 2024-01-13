@@ -518,7 +518,13 @@ class Message(aiopenapi3.plugin.Message):
         return ctx
 
     @Received("/redfish/v1/Managers/{ManagerId}/Actions/Oem/EID_674_Manager.ExportSystemConfiguration", method=["post"])
+    @Received(
+        "/redfish/v1/Systems/{ComputerSystemId}/Oem/Dell/DellSoftwareInstallationService/Actions/DellSoftwareInstallationService.InstallFromRepository",
+        method=["post"],
+    )
     def dr_ExportSystemConfiguration(self, ctx: "Message.Context") -> "Message.Context":
+        if ctx.status_code != "202":
+            return ctx
         location = ctx.headers["Location"]
         _, _, jobid = location.rpartition("/")
         ctx.received = json.dumps(
