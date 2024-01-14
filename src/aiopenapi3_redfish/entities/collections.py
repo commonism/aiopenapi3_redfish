@@ -15,6 +15,11 @@ class FabricCollection(AsyncCollection[AsyncFabric]):
     pass
 
 
+@Detour("#JobService..JobService/Jobs")
+class JobCollection(AsyncCollection[AsyncResourceRoot]):
+    pass
+
+
 @Detour("#AccountService..AccountService/Accounts")
 class ManagerAccountCollection(AsyncCollection[AsyncAccountService.ManagerAccount]):
     pass

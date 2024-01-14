@@ -111,8 +111,8 @@ class AsyncClient:
             p.update(parameters)
         return await self._request_send(req, p, data, context)
 
-    async def _request_send(self, req, parameters, data, context=None):
-        r = await req(parameters=parameters, data=data, context=context)
+    async def _request_send(self, req, parameters, data, context=None, **kwargs):
+        r = await req(parameters=parameters, data=data, context=context, **kwargs)
         if isinstance(r, self._RedfishError):
             raise RedfishException(r)
         return r
@@ -132,6 +132,10 @@ class AsyncClient:
     @property
     def EventService(self) -> "AsyncEventService":
         return self._serviceroot.EventService
+
+    @property
+    def JobService(self) -> "AsyncEventService":
+        return self._serviceroot.JobService
 
     @property
     def Manager(self) -> "Manager":

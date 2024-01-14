@@ -90,6 +90,18 @@ class DellAttributesCollection(AsyncCollection[DellAttributes]):
         self._data = value
 
 
+@Detour("#DellOem..DellOemLinks/Jobs")
+@Detour("#DellJobCollection.DellJobCollection")
+class DellJobCollection(AsyncCollection[AsyncResourceRoot]):
+    def __init__(self, root, path, value):
+        super().__init__(root._client, value)
+
+
+@Detour("/redfish/v1/Managers/{ManagerId}/Oem/Dell/Jobs")
+class DellJobCollection2(AsyncCollection[AsyncResourceRoot]):
+    pass
+
+
 @Detour(
     "/redfish/v1/Managers/{ManagerId}/Actions/Oem/EID_674_Manager.ExportSystemConfiguration",
 )
@@ -140,6 +152,8 @@ class DellOem(Oem):
     detour = [
         iDRACServiceRoot,
         DellAttributesCollection,
+        DellJobCollection,
+        DellJobCollection2,
         DellAttributes,
         EID_674_Manager_ExportSystemConfiguration,
         DellUpdateService,

@@ -19,6 +19,7 @@ from .service import (
 from .collections import (
     ChassisCollection,
     FabricCollection,
+    JobCollection,
     SessionsCollection,
     SystemsCollection,
     TaskCollection,
@@ -47,6 +48,7 @@ class Defaults(Lookup):
         AsyncUpdateService,
         ChassisCollection,
         FabricCollection,
+        JobCollection,
         SessionsCollection,
         SystemsCollection,
         TaskCollection,

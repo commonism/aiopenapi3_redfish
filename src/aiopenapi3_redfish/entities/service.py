@@ -64,7 +64,32 @@ class AsyncFabric(AsyncResourceRoot):
 @Detour("#JobService..JobService")
 @Detour("#ServiceRoot..ServiceRoot/JobService")
 class AsyncJobService(AsyncResourceRoot):
-    pass
+    async def wait_for(self, *JobIds: str, pollInterval: int = 7, maxWait: int = 700) -> AsyncResourceRoot:
+        todo = set(JobIds)
+        done = set()
+        error = set()
+
+        while len(todo):
+            for JobId in list(todo):
+                print(f"{len(todo)=} {len(done)=} {len(error)=}")
+                r = await self.Jobs.index(JobId)
+                if r.JobStatus != "OK":
+                    error.add(JobId)
+                else:
+                    if r.JobState == "Completed":
+                        print(r)
+                        done.add(JobId)
+                    elif r.JobState in ("Running", "Scheduled"):
+                        await asyncio.sleep(pollInterval)
+                        continue
+                    else:
+                        print(r)
+                        await asyncio.sleep(pollInterval)
+                        continue
+                await asyncio.sleep(pollInterval)
+                todo.discard(JobId)
+
+        return todo, done, error
 
 
 @Detour("/redfish/v1/LicenseService")

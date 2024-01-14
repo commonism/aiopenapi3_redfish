@@ -22,6 +22,7 @@ from aiopenapi3_redfish.Oem.Dell.clinic import (
     Document_vX as OemDocumentGenerator,
     Document_v7_00_60_00 as OemDocument,
     Message as OemMessage,
+    DellResourceHealth,
 )
 from aiopenapi3_redfish.Oem.Dell.oem import DellOem
 
@@ -74,10 +75,15 @@ async def client(description_documents, target, auth):
             RedfishDocument(t),
             PayloadAnnotations(),
             ExposeResponseHeaders(),
-            #            OemDocument(t, description_documents / "dell" / "iDRAC_7.00.60.00_A00"),
+            #            OemDocumentGenerator(t, description_documents / "dell" / "iDRAC_7.00.60.00_A00"),
             OemDocument(t),
+            DellResourceHealth("Resource_Health"),
+            DellResourceHealth("Resource_State"),
+            DellResourceHealth("Resource_PowerState"),
+            DellResourceHealth("Resource_Status"),
             OemMessage(),
             Reduce(
+                # (re.compile(r".*"), ["get", "post", "put", "patch", "delete"]),
                 #
                 # ServiceRoot
                 #
@@ -125,6 +131,13 @@ async def client(description_documents, target, auth):
                 # JobService
                 #
                 ("/redfish/v1/JobService", ["get"]),
+                ("/redfish/v1/JobService/Jobs", ["get", "post"]),
+                ("/redfish/v1/JobService/Jobs/{JobId}", ["get", "delete"]),
+                ("/redfish/v1/JobService/Jobs/{JobId}/Steps", ["get", "post"]),
+                ("/redfish/v1/JobService/Jobs/{JobId}/Steps/{JobId2}", ["get", "delete"]),
+                ("/redfish/v1/Managers/{ManagerId}/Oem/Dell/DellJobService", ["get"]),
+                ("/redfish/v1/Managers/{ManagerId}/Oem/Dell/Jobs", ["get", "post"]),
+                ("/redfish/v1/Managers/{ManagerId}/Oem/Dell/Jobs/{DellJobId}", ["get", "delete"]),
                 #
                 # LicenseService
                 #
@@ -155,7 +168,9 @@ async def client(description_documents, target, auth):
                 ("/redfish/v1/Systems/{ComputerSystemId}", ["get"]),
                 ("/redfish/v1/Systems/{ComputerSystemId}/Oem/Dell/DellSoftwareInstallationService", ["get"]),
                 (
-                    "/redfish/v1/Systems/{ComputerSystemId}/Oem/Dell/DellSoftwareInstallationService/Actions/DellSoftwareInstallationService.InstallFromRepository",
+                    re.compile(
+                        r"^/redfish/v1/Systems/{ComputerSystemId}/Oem/Dell/DellSoftwareInstallationService/Actions/DellSoftwareInstallationService.\S+$"
+                    ),
                     ["post"],
                 ),
                 #
@@ -409,10 +424,50 @@ async def test_DellSoftwareInstallationService(client, capsys):
     dsis = await system.Links.Oem.Dell.DellSoftwareInstallationService.get()
     action = dsis.Actions["#DellSoftwareInstallationService.InstallFromRepository"]
     data = action.data.model_validate(
-        {"ApplyUpdate": "False", "IgnoreCertWarning": "On", "IPAddress": "downloads.dell.com", "ShareType": "HTTPS"}
+        {
+            "ApplyUpdate": "True",
+            "IgnoreCertWarning": "On",
+            "IPAddress": "downloads.dell.com",
+            "ShareType": "HTTPS",
+            "RebootNeeded": "True",
+        }
     )
-    r = await action(data=data.model_dump(exclude_unset=True, by_alias=True))
+    #    r = await action(data=data.model_dump(exclude_unset=True, by_alias=True))
 
     # wait for the update
-    r = await client.TaskService.wait_for(r.Id)
-    return None
+    #    r = await client.JobService.wait_for(r.Id)
+
+    action = dsis.Actions["#DellSoftwareInstallationService.GetRepoBasedUpdateList"]
+    data = action.data.model_validate({})
+    try:
+        r = await action(data=data.model_dump(exclude_unset=True, by_alias=True))
+    except aiopenapi3_redfish.errors.RedfishException as e:
+        msg = "Unable to complete the operation because the catalog name entered has either unsupported firmware packages or same version installed on the server."
+        assert any(True for i in map(lambda x: x.Message, e.value.error.Message_ExtendedInfo_) if msg in i)
+    else:
+        import xml.etree.ElementTree
+
+        et = xml.etree.ElementTree.fromstring(r.PackageList)
+        jids = set(
+            filter(lambda x: isinstance(x, str), map(lambda x: x.text, et.findall('.//PROPERTY[@NAME="JobID"]/VALUE')))
+        )
+        print(jids)
+        r = await client.JobService.wait_for(*jids)
+
+
+@pytest.mark.asyncio
+async def test_Jobs(client, capsys):
+    async for job in client.JobService.Jobs.list():
+        print(job)
+        break
+    else:
+        raise ValueError("Job not found")
+
+    djs = await client.Manager.Links.Oem.Dell.DellJobService.get()
+
+    r = await client.Manager.Links.Oem.Dell.Jobs.refresh()
+    async for job in r.list():
+        print(job)
+        break
+    else:
+        raise ValueError("DellJob not found")

@@ -25,7 +25,7 @@ class Action:
             parameters.update(self.parameters)
         else:
             parameters = self.parameters
-        r = await self._client._request_send(self.req, parameters=parameters, data=data)
+        r = await self._client._request_send(self.req, parameters=parameters, data=data, *args, **kwargs)
         return r
 
 

@@ -408,6 +408,22 @@ class Document_vX(_DocumentBase):
         return ctx
 
 
+class DellResourceHealth(aiopenapi3.plugin.Document):
+    def __init__(self, key):
+        super().__init__()
+        self.key = key
+
+    def parsed(self, ctx: aiopenapi3.plugin.Document.Context):
+        try:
+            ctx.document["components"]["schemas"][self.key]["enum"].append("Unknown")
+            ctx.document["components"]["schemas"][self.key]["nullable"] = True
+        except Exception:
+            pass
+        else:
+            print(f"patched {self.key} in {ctx.url} adding Unknown to enum")
+        return ctx
+
+
 def Received(*patterns, method=None):
     return _Routes("_received", *patterns, method=method)
 
@@ -535,4 +551,14 @@ class Message(aiopenapi3.plugin.Message):
                 "Name": "Export: Server Configuration Profile",
             }
         )
+        return ctx
+
+    @Parsed("/redfish/v1/Systems/{ComputerSystemId}")
+    def dr_LastResetTime(self, ctx: "Message"):
+        if (
+            "LastResetTime" in ctx.expected_type.get_type().model_fields
+            and ctx.parsed.get("LastResetTime", None) == "0000-00-00T00:00:00+00:00"
+        ):
+            # '0000-00-00T00:00:00+00:00'
+            del ctx.parsed["LastResetTime"]
         return ctx
