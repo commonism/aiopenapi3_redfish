@@ -30,7 +30,8 @@ class Action:
 
 
 @Detour("#CertificateService..CertificateService/Actions")
-@Detour("#Chassis._.Chassis/Actions")
+@Detour("#Chassis..Chassis/Actions")
+@Detour("#ComputerSystem..ComputerSystem/Actions")
 @Detour("#EventService..EventService/Actions")
 @Detour("#Manager..Manager/Actions")
 @Detour("#TelemetryService..TelemetryService/Actions")

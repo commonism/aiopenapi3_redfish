@@ -63,8 +63,16 @@ def extended_timeout(*args, **kwargs) -> httpx.AsyncClient:
     return httpx.AsyncClient(*args, verify=False, timeout=timeout, **kwargs)
 
 
+@pytest.fixture
+def log(caplog):
+    import logging
+
+    caplog.set_level(logging.INFO, logger="httpcore")
+    caplog.set_level(logging.INFO, logger="httpx")
+
+
 @pytest_asyncio.fixture
-async def client(description_documents, target, auth):
+async def client(description_documents, target, auth, log):
     username, password = auth
     config = Config(
         target=(t := target),
@@ -161,6 +169,7 @@ async def client(description_documents, target, auth):
                 #
                 ("/redfish/v1/Systems", ["get"]),
                 ("/redfish/v1/Systems/{ComputerSystemId}", ["get"]),
+                (re.compile(r"^/redfish/v1/Systems/{ComputerSystemId}/Actions/ComputerSystem.\S+$"), ["post"]),
                 ("/redfish/v1/Systems/{ComputerSystemId}/Oem/Dell/DellSoftwareInstallationService", ["get"]),
                 (
                     re.compile(
@@ -414,8 +423,27 @@ async def test_Inventory(client, capsys):
 
 
 @pytest.mark.asyncio
-async def test_DellSoftwareInstallationService(client, capsys):
+async def test_DellSoftwareInstallationService(client, caplog):
+    import logging
+
+    caplog.set_level(logging.WARNING, logger="httpx")
     system = await client.Systems.index("System.Embedded.1")
+
+    async def off():
+        while system.PowerState != "Off":
+            await asyncio.sleep(15)
+            await system.refresh()
+
+    if system.PowerState != "Off":
+        await system.Reset("GracefulShutdown")
+        try:
+            await asyncio.wait_for(off(), 600)
+        except TimeoutError:
+            await system.Reset("ForceOff")
+
+    await system.refresh()
+    assert system.PowerState == "Off"
+
     dsis = await system.Links.Oem.Dell.DellSoftwareInstallationService.get()
     action = dsis.Actions["#DellSoftwareInstallationService.InstallFromRepository"]
     data = action.data.model_validate(
@@ -427,11 +455,54 @@ async def test_DellSoftwareInstallationService(client, capsys):
             "RebootNeeded": "True",
         }
     )
-    #    r = await action(data=data.model_dump(exclude_unset=True, by_alias=True))
+    r = await action(data=data.model_dump(exclude_unset=True, by_alias=True))
 
     # wait for the update
+    # never completes?
     #    r = await client.JobService.wait_for(r.Id)
 
+    done = dict()
+    todo = dict()
+
+    todo[r.Id] = await client.Manager.Links.Oem.Dell.Jobs.index(r.Id)
+
+    import aiopenapi3.errors
+
+    while len(todo):
+        try:
+            jobs = await client.Manager.Links.Oem.Dell.Jobs.refresh()
+            for i in jobs._data:
+                Id = Path(i.odata_id_).name
+
+                if Id in done:
+                    continue
+
+                old = job = await client.Manager.Links.Oem.Dell.Jobs.index(Id)
+                if Id not in todo:
+                    todo[Id] = job
+                else:
+                    old = todo[Id]
+
+                if old.PercentComplete != job.PercentComplete or old == job:
+                    print(
+                        f"{job.Id}/{job.JobType}/{job.Name} {job.JobState}/#{job.MessageId}/{job.Message} {old.PercentComplete} -> {job.PercentComplete}"
+                    )
+                todo[Id] = job
+
+                if job.PercentComplete == 100:
+                    del todo[job.Id]
+                    done[job.Id] = job
+
+            await asyncio.sleep(7)
+        except (aiopenapi3.errors.RequestError, aiopenapi3.errors.ResponseError) as e:
+            print(e)
+            await asyncio.sleep(15)
+
+
+@pytest.mark.asyncio
+async def test_DellSoftwareInstallationServiceGetRepoBasedUpdateList(client, caplog):
+    system = await client.Systems.index("System.Embedded.1")
+    dsis = await system.Links.Oem.Dell.DellSoftwareInstallationService.get()
     action = dsis.Actions["#DellSoftwareInstallationService.GetRepoBasedUpdateList"]
     data = action.data.model_validate({})
     try:
@@ -447,7 +518,9 @@ async def test_DellSoftwareInstallationService(client, capsys):
             filter(lambda x: isinstance(x, str), map(lambda x: x.text, et.findall('.//PROPERTY[@NAME="JobID"]/VALUE')))
         )
         print(jids)
-        r = await client.JobService.wait_for(*jids)
+        done, todo, error = await client.JobService.wait_for(*jids)
+        for job in done:
+            print(f"{job.Id=} {job.JobStatus=} {job.Messages[0].root.MessageId}/{job.Messages[0].root.Message}")
 
 
 @pytest.mark.asyncio
@@ -466,3 +539,32 @@ async def test_Jobs(client, capsys):
         break
     else:
         raise ValueError("DellJob not found")
+
+
+@pytest.mark.asyncio
+async def test_waitfor_jobs(client):
+    complete = set()
+
+    async def findjobs():
+        t = set()
+        await client.JobService.Jobs.refresh()
+        async for job in client.JobService.Jobs.list():
+            if job.Id in complete:
+                continue
+            if job.PercentComplete == 100:
+                complete.add(job.Id)
+            else:
+                t.add(job.Id)
+        return t
+
+    todo = set()
+    while True:
+        if len(todo) == 0:
+            todo = await findjobs()
+            if len(todo) == 0:
+                break
+        todo, done, error = await client.JobService.wait_for(*todo)
+        print(f"{len(todo)=} {len(done)=}")
+        for job in done:
+            print(f"{job.Id=} {job.JobStatus=} {job.Messages[0].root.MessageId}/{job.Messages[0].root.Message}")
+        complete.update(set((i.Id for i in done)))

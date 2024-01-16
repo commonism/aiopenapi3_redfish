@@ -66,24 +66,23 @@ class AsyncFabric(AsyncResourceRoot):
 class AsyncJobService(AsyncResourceRoot):
     async def wait_for(self, *JobIds: str, pollInterval: int = 7, maxWait: int = 700) -> AsyncResourceRoot:
         todo = set(JobIds)
-        done = set()
-        error = set()
+        done = list()
+        error = list()
 
         while len(todo):
             for JobId in list(todo):
                 print(f"{len(todo)=} {len(done)=} {len(error)=}")
-                r = await self.Jobs.index(JobId)
-                if r.JobStatus != "OK":
-                    error.add(JobId)
+                job = await self.Jobs.index(JobId)
+                if job.JobStatus != "OK":
+                    error.append(job)
                 else:
-                    if r.JobState == "Completed":
-                        print(r)
-                        done.add(JobId)
-                    elif r.JobState in ("Running", "Scheduled"):
+                    if job.JobState == "Completed":
+                        print(job)
+                        done.append(job)
+                    elif job.JobState in ("Running", "Scheduled"):
                         await asyncio.sleep(pollInterval)
                         continue
                     else:
-                        print(r)
                         await asyncio.sleep(pollInterval)
                         continue
                 await asyncio.sleep(pollInterval)
@@ -129,7 +128,8 @@ class AsyncSystem(AsyncResourceRoot):
     async def Reset(self, ResetType: str):
         action: aiopenapi3_redfish.entities.actions.Action = self.Actions["#ComputerSystem.Reset"]
         data = action.data.model_validate(dict(ResetType=ResetType))
-        return await action(data=data)
+        r = await action(data=data.model_dump(exclude_unset=True, by_alias=True))
+        return r
 
 
 @Detour("/redfish/v1/TaskService")

@@ -45,6 +45,9 @@ class ResourceItem:
             return ResourceItem(root, path, v)
         return v
 
+    async def refresh(self):
+        self._v = await self._root._client.get(self._v.odata_id_)
+
     async def get(self, *args, **kwargs):
         return await AsyncResourceRoot.asyncNew(self._root._client, self._v.odata_id_)
 
@@ -62,6 +65,9 @@ class AsyncResourceRoot(ResourceItem):
     def __init__(self, client: "AsyncClient", value: "BaseModel"):
         self._client: "AsyncClient" = client
         super().__init__(self, yarl.URL("/"), value)
+
+    async def refresh(self):
+        self._v = await self._client.get(self._v.odata_id_)
 
     async def get(self, *args, **kwargs):
         return await self._client.get(self._v.odata_id_, *args, **kwargs)
@@ -105,7 +111,10 @@ class AsyncResourceRoot(ResourceItem):
                 if attr == "":
                     at = getattr(self._v, "odata_id_")
                 else:
-                    at = getattr(self._v, attr).odata_id_
+                    if (tmp := getattr(self._v, attr)) is not None:
+                        at = tmp.odata_id_
+                    else:
+                        continue
                 if issubclass(cls, AsyncCollection):
                     value = await cls().asyncNew(self._client, at)
                 elif issubclass(cls, AsyncResourceRoot) or cls == AsyncResourceRoot:
