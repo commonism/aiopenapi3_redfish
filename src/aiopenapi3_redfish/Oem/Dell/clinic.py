@@ -127,6 +127,9 @@ paths:
         return ctx
 
     def fixDellManager(self, ctx):
+        """
+        The DelliDRACCard property defined as odata-v4_idRef instead of DelliDRACCard_DelliDRACCard
+        """
         if ctx.url.path.startswith("/redfish/v1/Schemas/DellManager.v"):
             root, _, version = Path(ctx.url.path).stem.partition(".")
             if (e := f"{root}_{version}_{root}") in ctx.document["components"]["schemas"]:
@@ -139,6 +142,19 @@ paths:
                 v["DelliDRACCard"][
                     "$ref"
                 ] = "/redfish/v1/Schemas/DelliDRACCard.yaml#/components/schemas/DelliDRACCard_DelliDRACCard"
+
+    def fixResourceHealth(self, ctx):
+        """
+        Dell uses Unknown for Health when the System is powered off and the value is unknown
+        """
+        for key in ["Resource_Health", "Resource_State", "Resource_PowerState", "Resource_Status"]:
+            try:
+                ctx.document["components"]["schemas"][key]["enum"].append("Unknown")
+                ctx.document["components"]["schemas"][key]["nullable"] = True
+            except Exception:
+                pass
+            else:
+                print(f"patched {key} in {ctx.url} adding Unknown to enum")
 
 
 class Document_v6_10_00_00(_DocumentBase):
@@ -241,7 +257,8 @@ class Document_v6_10_00_00(_DocumentBase):
     def parsed(self, ctx: aiopenapi3.plugin.Document.Context) -> aiopenapi3.plugin.Document.Context:
         super().parsed(ctx)
         self.removeInvalidVersions(ctx, self.VERSIONS)
-
+        self.fixDellManager(ctx)
+        self.fixResourceHealth(ctx)
         return ctx
 
 
@@ -352,6 +369,7 @@ class Document_v7_00_60_00(_DocumentBase):
         self.removeInvalidVersions(ctx, self.VERSIONS)
 
         self.fixDellManager(ctx)
+        self.fixResourceHealth(ctx)
         return ctx
 
 
@@ -405,22 +423,7 @@ class Document_vX(_DocumentBase):
                 self.removeInvalidVersions(ctx)
 
         self.fixDellManager(ctx)
-        return ctx
-
-
-class DellResourceHealth(aiopenapi3.plugin.Document):
-    def __init__(self, key):
-        super().__init__()
-        self.key = key
-
-    def parsed(self, ctx: aiopenapi3.plugin.Document.Context):
-        try:
-            ctx.document["components"]["schemas"][self.key]["enum"].append("Unknown")
-            ctx.document["components"]["schemas"][self.key]["nullable"] = True
-        except Exception:
-            pass
-        else:
-            print(f"patched {self.key} in {ctx.url} adding Unknown to enum")
+        self.fixResourceHealth(ctx)
         return ctx
 
 

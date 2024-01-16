@@ -22,7 +22,6 @@ from aiopenapi3_redfish.Oem.Dell.clinic import (
     Document_vX as OemDocumentGenerator,
     Document_v7_00_60_00 as OemDocument,
     Message as OemMessage,
-    DellResourceHealth,
 )
 from aiopenapi3_redfish.Oem.Dell.oem import DellOem
 
@@ -77,10 +76,6 @@ async def client(description_documents, target, auth):
             ExposeResponseHeaders(),
             #            OemDocumentGenerator(t, description_documents / "dell" / "iDRAC_7.00.60.00_A00"),
             OemDocument(t),
-            DellResourceHealth("Resource_Health"),
-            DellResourceHealth("Resource_State"),
-            DellResourceHealth("Resource_PowerState"),
-            DellResourceHealth("Resource_Status"),
             OemMessage(),
             Reduce(
                 # (re.compile(r".*"), ["get", "post", "put", "patch", "delete"]),
