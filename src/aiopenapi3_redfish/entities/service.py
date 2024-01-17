@@ -131,6 +131,35 @@ class AsyncSystem(AsyncResourceRoot):
         r = await action(data=data.model_dump(exclude_unset=True, by_alias=True))
         return r
 
+    async def togglePower(self, powerState=None):
+        if powerState is None:
+            await self.refresh()
+            powerState = self.PowerState
+
+        state = {"On": "Off", "Off": "On"}[powerState]
+
+        async def pollState():
+            while self.PowerState != state:
+                await asyncio.sleep(15)
+                await self.refresh()
+
+        if state == "Off":
+            if self.PowerState != "Off":
+                await self.Reset("GracefulShutdown")
+                try:
+                    await asyncio.wait_for(pollState(), 600)
+                except TimeoutError:
+                    await self.Reset("ForceOff")
+        elif state == "On":
+            try:
+                await self.Reset("GracefulRestart")
+                await asyncio.wait_for(pollState(), 600)
+            except TimeoutError:
+                await self.Reset("ForceRestart")
+
+        await self.refresh()
+        assert self.PowerState == state
+
 
 @Detour("/redfish/v1/TaskService")
 @Detour("#TaskService..TaskService")

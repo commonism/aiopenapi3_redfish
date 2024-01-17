@@ -1,8 +1,12 @@
+import asyncio
 import collections
 import enum
+from pathlib import Path
 
 import jq
 import yarl
+
+import aiopenapi3.errors
 
 from aiopenapi3_redfish.base import AsyncResourceRoot, ResourceItem, AsyncCollection
 from aiopenapi3_redfish.serviceroot import AsyncServiceRoot
@@ -148,6 +152,123 @@ class DellManager(aiopenapi3_redfish.entities.actions.Action):
     pass
 
 
+@Detour("#DellSoftwareInstallationService..DellSoftwareInstallationService")
+class DellSoftwareInstallationService(AsyncResourceRoot):
+    async def InstallFromRepository(self) -> bool:
+        """
+        InstallFromRepository helper to prevent stalls
+
+        detect stall as no change in jobs for 15 minutes …
+        toggle power …
+        repeat …
+
+        success if no jobs remain
+        fail after a max of 2 hours
+        :return: True on Success, all jobs finished.
+                False on Timeout, unfinished jobs
+        """
+        client = self._client
+
+        system = await client.Systems.index("System.Embedded.1")
+
+        await system.togglePower("On")
+
+        action = self.Actions["#DellSoftwareInstallationService.InstallFromRepository"]
+        data = action.data.model_validate(
+            {
+                "ApplyUpdate": "True",
+                "IgnoreCertWarning": "On",
+                "IPAddress": "downloads.dell.com",
+                "ShareType": "HTTPS",
+                "RebootNeeded": "True",
+            }
+        )
+        r = await action(data=data.model_dump(exclude_unset=True, by_alias=True))
+
+        return await self._awaitInstall(r.Id)
+
+    async def _awaitInstall(self, initial=None):
+        """
+        :param initial:
+        :return: True if no unfinished jobs remain, else False
+        """
+        client = self._client
+        system = await client.Systems.index("System.Embedded.1")
+
+        done = dict()
+        todo = dict()
+
+        if initial is None:
+            """pick a random job to start with"""
+            jobs = await client.Manager.Links.Oem.Dell.Jobs.refresh()
+            i = await jobs.first()
+            todo[Path(i.odata_id_).name] = i
+        else:
+            todo[initial] = await client.Manager.Links.Oem.Dell.Jobs.index(initial)
+
+        async def step() -> bool:
+            """
+            :return True if finished. False if not stalled
+            """
+            stalled = True
+            while len(todo):
+                try:
+                    jobs = await client.Manager.Links.Oem.Dell.Jobs.refresh()
+                    for i in jobs._data:
+                        Id = Path(i.odata_id_).name
+
+                        if Id in done:
+                            continue
+
+                        old = job = await client.Manager.Links.Oem.Dell.Jobs.index(Id)
+                        if Id not in todo:
+                            todo[Id] = job
+                        else:
+                            old = todo[Id]
+
+                        if old.PercentComplete != job.PercentComplete or old == job:
+                            stalled = False
+                            print(
+                                f"{job.Id}/{job.JobType}/{job.Name} {job.JobState}/#{job.MessageId}/{job.Message} {old.PercentComplete} -> {job.PercentComplete}"
+                            )
+                        todo[Id] = job
+
+                        if job.PercentComplete == 100:
+                            del todo[job.Id]
+                            done[job.Id] = job
+
+                    await asyncio.sleep(7)
+                except (aiopenapi3.errors.RequestError, aiopenapi3.errors.ResponseError) as e:
+                    print(e)
+                    await asyncio.sleep(15)
+
+                if stalled is True:
+                    continue
+                return False
+            return True
+
+        async def install() -> None:
+            while True:
+                try:
+                    finished = await asyncio.wait_for(step(), timeout=10 * 60)
+                except asyncio.TimeoutError:
+                    await system.togglePower()
+                else:
+                    if finished is True:
+                        break
+
+        try:
+            await asyncio.wait_for(install(), timeout=3600 * 2)
+        except asyncio.TimeoutError:
+            return False
+        return True
+
+
+@Detour("#DellSoftwareInstallationService..DellSoftwareInstallationService/Actions")
+class DellActions(aiopenapi3_redfish.entities.actions.Actions):
+    _detour = None
+
+
 class DellOem(Oem):
     detour = [
         iDRACServiceRoot,
@@ -162,4 +283,6 @@ class DellOem(Oem):
         #        ManagerLinksOem,
         DellOemLinks,
         ManagerActionsOem,
+        DellSoftwareInstallationService,
+        DellActions,
     ]

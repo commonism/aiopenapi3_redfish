@@ -429,74 +429,15 @@ async def test_DellSoftwareInstallationService(client, caplog):
     caplog.set_level(logging.WARNING, logger="httpx")
     system = await client.Systems.index("System.Embedded.1")
 
-    async def off():
-        while system.PowerState != "Off":
-            await asyncio.sleep(15)
-            await system.refresh()
-
-    if system.PowerState != "Off":
-        await system.Reset("GracefulShutdown")
-        try:
-            await asyncio.wait_for(off(), 600)
-        except TimeoutError:
-            await system.Reset("ForceOff")
-
-    await system.refresh()
-    assert system.PowerState == "Off"
-
     dsis = await system.Links.Oem.Dell.DellSoftwareInstallationService.get()
-    action = dsis.Actions["#DellSoftwareInstallationService.InstallFromRepository"]
-    data = action.data.model_validate(
-        {
-            "ApplyUpdate": "True",
-            "IgnoreCertWarning": "On",
-            "IPAddress": "downloads.dell.com",
-            "ShareType": "HTTPS",
-            "RebootNeeded": "True",
-        }
-    )
-    r = await action(data=data.model_dump(exclude_unset=True, by_alias=True))
+    await dsis.InstallFromRepository()
 
-    # wait for the update
-    # never completes?
-    #    r = await client.JobService.wait_for(r.Id)
 
-    done = dict()
-    todo = dict()
-
-    todo[r.Id] = await client.Manager.Links.Oem.Dell.Jobs.index(r.Id)
-
-    import aiopenapi3.errors
-
-    while len(todo):
-        try:
-            jobs = await client.Manager.Links.Oem.Dell.Jobs.refresh()
-            for i in jobs._data:
-                Id = Path(i.odata_id_).name
-
-                if Id in done:
-                    continue
-
-                old = job = await client.Manager.Links.Oem.Dell.Jobs.index(Id)
-                if Id not in todo:
-                    todo[Id] = job
-                else:
-                    old = todo[Id]
-
-                if old.PercentComplete != job.PercentComplete or old == job:
-                    print(
-                        f"{job.Id}/{job.JobType}/{job.Name} {job.JobState}/#{job.MessageId}/{job.Message} {old.PercentComplete} -> {job.PercentComplete}"
-                    )
-                todo[Id] = job
-
-                if job.PercentComplete == 100:
-                    del todo[job.Id]
-                    done[job.Id] = job
-
-            await asyncio.sleep(7)
-        except (aiopenapi3.errors.RequestError, aiopenapi3.errors.ResponseError) as e:
-            print(e)
-            await asyncio.sleep(15)
+@pytest.mark.asyncio
+async def test_DellSoftwareInstallationService_wait(client, caplog):
+    system = await client.Systems.index("System.Embedded.1")
+    dsis = await system.Links.Oem.Dell.DellSoftwareInstallationService.get()
+    await dsis._awaitInstall()
 
 
 @pytest.mark.asyncio

@@ -36,7 +36,6 @@ class Action:
 @Detour("#Manager..Manager/Actions")
 @Detour("#TelemetryService..TelemetryService/Actions")
 @Detour("#UpdateService..UpdateService/Actions")
-@Detour("#DellSoftwareInstallationService..DellSoftwareInstallationService/Actions")
 class Actions(ResourceItem):
     _detour = None
 
