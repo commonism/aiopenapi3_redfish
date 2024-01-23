@@ -253,7 +253,7 @@ class DellSoftwareInstallationService(AsyncResourceRoot):
             while True:
                 try:
                     finished = await asyncio.wait_for(step(), timeout=10 * 60)
-                except asyncio.TimeoutError:
+                except (asyncio.TimeoutError, TimeoutError, asyncio.CancelledError) as e0:
                     self._client.log.info(f"step Timeout {type(e0)}")
                     self._client.log.exception(e0)
                     await system.togglePower()
