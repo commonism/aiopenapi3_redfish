@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import string
 from pathlib import Path
 import re
@@ -208,7 +209,8 @@ async def client(description_documents, target, auth, log):
         cache=Path("/tmp/test_new.pickle"),
         session_factory=non_validating_https,
     )
-    client = AsyncClient(config)
+    api = AsyncClient.createAPI(config)
+    client = AsyncClient(config, api)
     from aiopenapi3_redfish.oem import Mapping
     from aiopenapi3_redfish.entities import Defaults
 
@@ -480,32 +482,3 @@ async def test_Jobs(client, capsys):
         break
     else:
         raise ValueError("DellJob not found")
-
-
-@pytest.mark.asyncio
-async def test_waitfor_jobs(client):
-    complete = set()
-
-    async def findjobs():
-        t = set()
-        await client.JobService.Jobs.refresh()
-        async for job in client.JobService.Jobs.list():
-            if job.Id in complete:
-                continue
-            if job.PercentComplete == 100:
-                complete.add(job.Id)
-            else:
-                t.add(job.Id)
-        return t
-
-    todo = set()
-    while True:
-        if len(todo) == 0:
-            todo = await findjobs()
-            if len(todo) == 0:
-                break
-        todo, done, error = await client.JobService.wait_for(*todo)
-        print(f"{len(todo)=} {len(done)=}")
-        for job in done:
-            print(f"{job.Id=} {job.JobStatus=} {job.Messages[0].root.MessageId}/{job.Messages[0].root.Message}")
-        complete.update(set((i.Id for i in done)))
