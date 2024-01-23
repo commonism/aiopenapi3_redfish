@@ -126,6 +126,7 @@ class AsyncSessionService(AsyncResourceRoot):
 @Detour("#ComputerSystem..ComputerSystem")
 class AsyncSystem(AsyncResourceRoot):
     async def Reset(self, ResetType: str):
+        self._client.log.info(f"Action #ComputerSystem.Reset {ResetType}")
         action: aiopenapi3_redfish.entities.actions.Action = self.Actions["#ComputerSystem.Reset"]
         data = action.data.model_validate(dict(ResetType=ResetType))
         r = await action(data=data.model_dump(exclude_unset=True, by_alias=True))
@@ -137,6 +138,8 @@ class AsyncSystem(AsyncResourceRoot):
             powerState = self.PowerState
 
         state = {"On": "Off", "Off": "On"}[powerState]
+
+        self._client.log.info(f"togglePower {powerState} -> {state}")
 
         async def pollState():
             while self.PowerState != state:
@@ -152,7 +155,8 @@ class AsyncSystem(AsyncResourceRoot):
                     await self.Reset("ForceOff")
         elif state == "On":
             try:
-                await self.Reset("GracefulRestart")
+                if self.PowerState == "Off":
+                    await self.Reset("On")
                 await asyncio.wait_for(pollState(), 600)
             except TimeoutError:
                 await self.Reset("ForceRestart")

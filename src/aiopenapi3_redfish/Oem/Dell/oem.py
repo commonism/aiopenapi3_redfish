@@ -168,6 +168,7 @@ class DellSoftwareInstallationService(AsyncResourceRoot):
                 False on Timeout, unfinished jobs
         """
         client = self._client
+        self._client.log.info("Action #DellSoftwareInstallationService.InstallFromRepository")
 
         system = await client.Systems.index("System.Embedded.1")
 
@@ -228,7 +229,7 @@ class DellSoftwareInstallationService(AsyncResourceRoot):
 
                         if old.PercentComplete != job.PercentComplete or old == job:
                             stalled = False
-                            print(
+                            self._client.log.info(
                                 f"{job.Id}/{job.JobType}/{job.Name} {job.JobState}/#{job.MessageId}/{job.Message} {old.PercentComplete} -> {job.PercentComplete}"
                             )
                         todo[Id] = job
@@ -236,15 +237,16 @@ class DellSoftwareInstallationService(AsyncResourceRoot):
                         if job.PercentComplete == 100:
                             del todo[job.Id]
                             done[job.Id] = job
-
                     await asyncio.sleep(7)
-                except (aiopenapi3.errors.RequestError, aiopenapi3.errors.ResponseError) as e:
-                    print(e)
+                except (aiopenapi3.errors.RequestError, aiopenapi3.errors.ResponseError) as e0:
+                    self._client.log.exception(e0)
                     await asyncio.sleep(15)
-
-                if stalled is True:
-                    continue
-                return False
+                except Exception as e2:
+                    self._client.log.exception(e2)
+                if stalled is False:
+                    self._client.log.info("step continue")
+                    return False
+            self._client.log.info("step finished")
             return True
 
         async def install() -> None:
@@ -252,15 +254,29 @@ class DellSoftwareInstallationService(AsyncResourceRoot):
                 try:
                     finished = await asyncio.wait_for(step(), timeout=10 * 60)
                 except asyncio.TimeoutError:
+                    self._client.log.info(f"step Timeout {type(e0)}")
+                    self._client.log.exception(e0)
                     await system.togglePower()
+                except Exception as e1:
+                    self._client.log.exception(e1)
                 else:
                     if finished is True:
+                        self._client.log.info("step Finished")
                         break
+                self._client.log.info(f"status {len(todo)=} {len(done)=}")
 
         try:
             await asyncio.wait_for(install(), timeout=3600 * 2)
-        except asyncio.TimeoutError:
+        except (asyncio.TimeoutError, TimeoutError):
+            self._client.log.info("install Timeout")
             return False
+        except Exception as e:
+            self._client.log.info("install Error")
+            self._client.log.exception(e)
+            return False
+        else:
+            self._client.log.info("install Finished")
+        self._client.log.info("install Ended")
         return True
 
 

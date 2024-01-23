@@ -1,6 +1,7 @@
 import typing
 from typing import List, Union
 from pathlib import Path
+import logging
 
 import httpx
 import yarl
@@ -48,10 +49,22 @@ class Config:
         self.session_factory: Union[httpx.AsyncClient | httpx.Client] = session_factory
 
 
+class AsynClientLoggingAdapter(logging.LoggerAdapter):
+    """
+    This example adapter expects the passed in dict-like object to have a
+    'connid' key, whose value in brackets is prepended to the log message.
+    """
+
+    def process(self, msg, kwargs):
+        return "[%s] %s" % (self.extra["target"], msg), kwargs
+
+
 class AsyncClient:
-    def __init__(self, config):
+    _log = logging.getLogger("aiopenapi3_redfish.AsyncClient")
+
+    def __init__(self, config, api):
         self.config = config
-        self.api = self.createAPI(config)
+        self.api = api
         self._serviceroot: AsyncServiceRoot = None
 
         self.routes = routes.Mapper()
@@ -60,6 +73,13 @@ class AsyncClient:
 
         self._mapping: "Mapping" = None
         self._RedfishError = self.api.components.schemas["RedfishError"].get_type()
+        self.log = AsynClientLoggingAdapter(self._log, extra=dict(target=yarl.URL(self.config.target).host))
+
+    @classmethod
+    def fromConfig(cls, config: Config, api=None) -> "AsyncClient":
+        if api is None:
+            api = cls.createAPI(config)
+        return cls(config, api)
 
     async def asyncInit(self):
         self._serviceroot = await AsyncResourceRoot.asyncNew(self, "/redfish/v1")
