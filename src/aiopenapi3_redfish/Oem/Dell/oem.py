@@ -94,6 +94,12 @@ class DellAttributesCollection(AsyncCollection[DellAttributes]):
         super().__init__(root._client, None)
         self._data = value
 
+    async def index(self, key):
+        for i in self._data:
+            if Path(i.odata_id_).name == key:
+                return await self.T.asyncNew(self._root._client, i.odata_id_)
+        raise KeyError(key)
+
 
 @Detour("#DellOem..DellOemLinks/Jobs")
 @Detour("#DellJobCollection.DellJobCollection")
