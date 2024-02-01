@@ -500,6 +500,7 @@ class Message(aiopenapi3.plugin.Message):
     def received(self, ctx: "Message.Context") -> "Message.Context":
         return self._dr(self._received, ctx)
 
+    @Parsed("/redfish/v1/Managers/{ManagerId}/Oem/Dell/DellAttributes/{DellAttributesId}", method=["patch"])
     @Parsed("/redfish/v1/AccountService/Accounts/{ManagerAccountId}", method=["patch", "post"])
     @Parsed("/redfish/v1/SessionService/Sessions/{SessionId}", method=["delete"])
     def dr_NODATA(self, ctx: "Message.Context"):
@@ -517,6 +518,8 @@ class Message(aiopenapi3.plugin.Message):
             if ctx.request.vars.data is not None:
                 data.update(ctx.request.vars.data)
             ctx.parsed = data
+        else:
+            pass
 
     @Received("/redfish/v1/TaskService/Tasks/{TaskId}", method=["get"])
     def dr_Task(self, ctx: "Message.Context") -> "Message.Context":
@@ -534,8 +537,17 @@ class Message(aiopenapi3.plugin.Message):
                     }
                 )
                 ctx.content_type = "application/json"
+
         return ctx
 
+    @Parsed("/redfish/v1/TaskService/Tasks/{TaskId}", method=["get"])
+    def dr_Task_MessageId(self, ctx: "Message.Context") -> "Message.Context":
+        for i in ctx.parsed.get("Messages", []):
+            if "MessageId" not in i:
+                i["MessageId"] = ""
+        return ctx
+
+    @Received("/redfish/v1/Managers/{ManagerId}/Actions/Oem/EID_674_Manager.ImportSystemConfiguration", method=["post"])
     @Received("/redfish/v1/Managers/{ManagerId}/Actions/Oem/EID_674_Manager.ExportSystemConfiguration", method=["post"])
     @Received(
         "/redfish/v1/Systems/{ComputerSystemId}/Oem/Dell/DellSoftwareInstallationService/Actions/DellSoftwareInstallationService.InstallFromRepository",
@@ -565,3 +577,14 @@ class Message(aiopenapi3.plugin.Message):
             # '0000-00-00T00:00:00+00:00'
             del ctx.parsed["LastResetTime"]
         return ctx
+
+    @Parsed("/redfish/v1/Chassis/{ChassisId}")
+    def dr_Chassis(self, ctx: "Message"):
+        ctx.parsed["EnvironmentalClass"] = ctx.parsed.get("EnvironmentalClass", "A1") or "A1"
+        return ctx
+
+    @Parsed(
+        "/redfish/v1/Chassis/{ChassisId}/NetworkAdapters/{NetworkAdapterId}/NetworkDeviceFunctions/{NetworkDeviceFunctionId}"
+    )
+    def dr_NetworkDeviceFunction(self, ctx: "Message"):
+        ctx.parsed["FibreChannel"]["WWNSource"] = "ProvidedByFabric"
