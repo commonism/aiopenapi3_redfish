@@ -1,5 +1,6 @@
 import asyncio
 
+import aiopenapi3.errors
 
 import aiopenapi3_redfish.entities.actions
 from aiopenapi3_redfish.base import AsyncResourceRoot, AsyncCollection
@@ -144,7 +145,10 @@ class AsyncSystem(AsyncResourceRoot):
         async def pollState():
             while self.PowerState != state:
                 await asyncio.sleep(15)
-                await self.refresh()
+                try:
+                    await self.refresh()
+                except aiopenapi3.errors.ResponseSchemaError:
+                    pass
 
         if state == "Off":
             if self.PowerState != "Off":
