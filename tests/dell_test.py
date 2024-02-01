@@ -115,6 +115,11 @@ async def client(description_documents, target, auth, log):
                     "/redfish/v1/Chassis/{ChassisId}/NetworkAdapters/{NetworkAdapterId}/NetworkPorts/{NetworkPortId}",
                     ["get"],
                 ),
+                ("/redfish/v1/Chassis/{ChassisId}/NetworkAdapters/{NetworkAdapterId}/NetworkDeviceFunctions", ["get"]),
+                (
+                    "/redfish/v1/Chassis/{ChassisId}/NetworkAdapters/{NetworkAdapterId}/NetworkDeviceFunctions/{NetworkDeviceFunctionId}",
+                    ["get"],
+                ),
                 #
                 # EventService
                 #

@@ -40,6 +40,11 @@ class NetworkPortCollection(AsyncCollection[AsyncResourceRoot]):
     pass
 
 
+@Detour("#NetworkAdapter..NetworkAdapter/NetworkDeviceFunctions")
+class NetworkDeviceFunctionCollection(AsyncCollection[AsyncResourceRoot]):
+    pass
+
+
 @Detour("#SessionService..SessionService/Sessions")
 class SessionsCollection(AsyncCollection[AsyncResourceRoot]):
     pass

@@ -26,6 +26,7 @@ from .collections import (
     ManagerAccountCollection,
     ManagerCollection,
     NetworkAdapterCollection,
+    NetworkDeviceFunctionCollection,
     NetworkPortCollection,
 )
 
@@ -55,5 +56,6 @@ class Defaults(Lookup):
         ManagerAccountCollection,
         ManagerCollection,
         NetworkAdapterCollection,
+        NetworkDeviceFunctionCollection,
         NetworkPortCollection,
     ]
