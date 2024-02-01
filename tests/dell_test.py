@@ -175,6 +175,8 @@ async def client(description_documents, target, auth, log):
                 #
                 ("/redfish/v1/Systems", ["get"]),
                 ("/redfish/v1/Systems/{ComputerSystemId}", ["get"]),
+                ("/redfish/v1/Systems/{ComputerSystemId}/Bios", ["get", "patch"]),
+                ("/redfish/v1/Systems/{ComputerSystemId}/Bios/Settings", ["get", "patch"]),
                 (re.compile(r"^/redfish/v1/Systems/{ComputerSystemId}/Actions/ComputerSystem.\S+$"), ["post"]),
                 ("/redfish/v1/Systems/{ComputerSystemId}/Oem/Dell/DellSoftwareInstallationService", ["get"]),
                 (
@@ -487,3 +489,30 @@ async def test_Jobs(client, capsys):
         break
     else:
         raise ValueError("DellJob not found")
+
+
+@pytest.mark.asyncio
+async def test_BIOS(client, capsys):
+    sys = await client.Systems.index("System.Embedded.1")
+    bios = await sys.Bios.get()
+
+    data = dict(
+        Attributes={
+            "PxeDev1EnDis": "Enabled",
+            "PxeDev1Interface": "NIC.Embedded.1-1-1",
+            "PxeDev1Protocol": "IPv4",
+            "PxeDev1VlanEnDis": "Disabled",
+            "PxeDev1VlanId": 1,
+            "PxeDev1VlanPriority": 0,
+        },
+        **{
+            "@Redfish.SettingsApplyTime": {
+                "@odata.type": "#Settings.v1_3_3.PreferredApplyTime",
+                "ApplyTime": "OnReset",
+            },
+        },
+    )
+    try:
+        r = await bios.set(**data)
+    except aiopenapi3_redfish.errors.RedfishException as e:
+        logging.exception(e)

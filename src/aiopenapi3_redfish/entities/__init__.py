@@ -31,6 +31,9 @@ from .collections import (
 )
 
 
+from .settings import AsyncBios
+
+
 class Defaults(Lookup):
     detour = [
         Actions,
@@ -58,4 +61,5 @@ class Defaults(Lookup):
         NetworkAdapterCollection,
         NetworkDeviceFunctionCollection,
         NetworkPortCollection,
+        AsyncBios,
     ]
