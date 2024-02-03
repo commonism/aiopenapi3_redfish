@@ -73,7 +73,7 @@ def log(caplog):
 
 
 @pytest_asyncio.fixture
-async def client(description_documents, target, auth, log):
+async def client_(description_documents, target, auth, log):
     username, password = auth
     config = Config(
         target=(t := target),
@@ -222,8 +222,13 @@ async def client(description_documents, target, auth, log):
     from aiopenapi3_redfish.entities import Defaults
 
     client._mapping = Mapping(oem=DellOem(), defaults=Defaults())
-    await client.asyncInit()
     return client
+
+
+@pytest.mark.asyncio
+async def client(client_):
+    await client_.asyncInit()
+    return client_
 
 
 @pytest.mark.asyncio
@@ -302,6 +307,21 @@ async def test_Action_EID_674_Manager_ExportSystemConfiguration(client: aiopenap
     r = await client.TaskService.wait_for(r.Id)
     payload = r.Messages[0].root.Message
     assert payload.startswith("<SystemConfiguration")
+
+
+@pytest.mark.skip(reason="missing template")
+@pytest.mark.asyncio
+async def test_Action_EID_674_Manager_ImportSystemConfiguration(client: aiopenapi3_redfish.AsyncClient):
+    tpl = Path("template.json").expanduser()
+    r = await client.Manager.Actions.Oem["#OemManager.ImportSystemConfiguration"](tpl)
+
+    while True:
+        try:
+            await client.TaskService.wait_for(r.Id)
+            break
+        except Exception as e:
+            logging.exception(e)
+            await asyncio.sleep(10)
 
 
 @pytest.mark.asyncio

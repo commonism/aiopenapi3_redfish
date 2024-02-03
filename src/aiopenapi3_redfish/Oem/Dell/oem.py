@@ -135,9 +135,32 @@ class EID_674_Manager_ExportSystemConfiguration(aiopenapi3_redfish.entities.acti
 
 @Detour(
     "/redfish/v1/Managers/{ManagerId}/Actions/Oem/EID_674_Manager.ImportSystemConfiguration",
-    "/redfish/v1/Managers/{ManagerId}/Actions/Oem/EID_674_Manager.ImportSystemConfigurationPreview",
 )
 class EID_674_Manager_ImportSystemConfiguration(aiopenapi3_redfish.entities.actions.Action):
+    async def __call__(self, path: Path, Target: str = "IDRAC"):
+        tShareParameters = self.data.model_fields["ShareParameters"].annotation
+
+        import re
+
+        template = path.read_text()
+        template = re.sub(r"(   | \n ?)", "", template)
+
+        data = self.data(
+            ExecutionMode="Default",
+            HostPowerState="On",
+            ImportBuffer=template,
+            ShareParameters=tShareParameters(FileName="template.json", Target=[Target]),
+            ShutdownType="NoReboot",
+            TimeToWait=300,
+        )
+        r = await super().__call__(data=data.model_dump(exclude_unset=True))
+        return r
+
+
+@Detour(
+    "/redfish/v1/Managers/{ManagerId}/Actions/Oem/EID_674_Manager.ImportSystemConfigurationPreview",
+)
+class EID_674_Manager_ImportSystemConfigurationPreview(aiopenapi3_redfish.entities.actions.Action):
     pass
 
 
@@ -299,6 +322,7 @@ class DellOem(Oem):
         DellJobCollection,
         DellJobCollection2,
         DellAttributes,
+        EID_674_Manager_ImportSystemConfiguration,
         EID_674_Manager_ExportSystemConfiguration,
         DellUpdateService,
         DellTelemetryService,
