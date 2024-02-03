@@ -1,4 +1,5 @@
 import asyncio
+from typing import Literal
 
 import aiopenapi3.errors
 
@@ -126,7 +127,20 @@ class AsyncSessionService(AsyncResourceRoot):
 @Detour("/redfish/v1/Systems/{SystemId}")
 @Detour("#ComputerSystem..ComputerSystem")
 class AsyncSystem(AsyncResourceRoot):
-    async def Reset(self, ResetType: str):
+    async def Reset(
+        self,
+        ResetType: Literal[
+            "ForceOff",
+            "ForceOff",
+            "ForceRestart",
+            "GracefulRestart",
+            "GracefulShutdown",
+            "Nmi",
+            "On",
+            "PowerCycle",
+            "PushPowerButton",
+        ],
+    ):
         self._client.log.info(f"Action #ComputerSystem.Reset {ResetType}")
         action: aiopenapi3_redfish.entities.actions.Action = self.Actions["#ComputerSystem.Reset"]
         data = action.data.model_validate(dict(ResetType=ResetType))
