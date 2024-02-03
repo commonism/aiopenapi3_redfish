@@ -115,10 +115,13 @@ class AsyncResourceRoot(ResourceItem):
                         at = tmp.odata_id_
                     else:
                         continue
-                if issubclass(cls, AsyncCollection):
-                    value = await cls().asyncNew(self._client, at)
-                elif issubclass(cls, AsyncResourceRoot) or cls == AsyncResourceRoot:
-                    value = await cls.asyncNew(self._client, at)
+                try:
+                    if issubclass(cls, AsyncCollection):
+                        value = await cls().asyncNew(self._client, at)
+                    elif issubclass(cls, AsyncResourceRoot) or cls == AsyncResourceRoot:
+                        value = await cls.asyncNew(self._client, at)
+                except KeyError:
+                    value = dict(undefined=True)
             elif issubclass(cls, ResourceItem) or cls == ResourceItem:
                 value = cls(self, yarl.URL(field), getattr(self._v, attr))
             else:
