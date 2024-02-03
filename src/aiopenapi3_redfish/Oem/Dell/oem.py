@@ -9,6 +9,7 @@ import yarl
 import aiopenapi3.errors
 
 from aiopenapi3_redfish.base import AsyncResourceRoot, ResourceItem, AsyncCollection
+from aiopenapi3_redfish.entities.settings import AsyncSettings
 from aiopenapi3_redfish.serviceroot import AsyncServiceRoot
 from aiopenapi3_redfish.oem import Oem, Detour
 
@@ -54,7 +55,7 @@ class DellOemLinks(ResourceItem):
     "#DellAttributes.v1_0_0.DellAttributes",
     "/redfish/v1/Managers/{ManagerId}/Oem/Dell/DellAttributes/{DellAttributesId}",
 )
-class DellAttributes(AsyncResourceRoot):
+class DellAttributes(AsyncSettings):
     class Permissions(enum.IntFlag):
         """
         Source: Chassis Management Controller Version 1.25 for Dell PowerEdge VRTX RACADM Command Line Reference Guide

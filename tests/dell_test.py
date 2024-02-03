@@ -367,6 +367,16 @@ async def test_DellAttributes(client, capsys):
     obj = obj.DellAttributes
     async for i in obj.list():
         print(i)
+
+
+@pytest.mark.asyncio
+async def test_DellAttributes_write(client, capsys):
+    da = await client.Manager.Links.Oem.Dell.DellAttributes.index("iDRAC.Embedded.1")
+    Attributes = {
+        "Users.4.Enabled": "Disabled",
+    }
+    await da.set(**Attributes)
+
     return None
 
 
