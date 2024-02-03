@@ -325,6 +325,14 @@ async def test_Action_EID_674_Manager_ImportSystemConfiguration(client: aiopenap
 
 
 @pytest.mark.asyncio
+async def test_TaskManager(client):
+    client.api._base_url = "https://10.17.250.23"
+    client.api.authenticate(basicAuth=("root", "calvin"))
+    async for i in client.TaskService.Tasks.list():
+        print(i)
+
+
+@pytest.mark.asyncio
 async def test_EventService_SSE(client, capsys):
     client.api._session_factory = extended_timeout
 
