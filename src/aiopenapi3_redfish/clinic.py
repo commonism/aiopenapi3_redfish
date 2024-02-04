@@ -65,6 +65,48 @@ class RedfishDocument(Document):
             del ctx.document["title"]
 
 
+class NullableRefs(Document):
+    """
+    The DMTF OpenAPI reference description documents incorrectly use nullable on references in properties and arrays
+    In OpenAPI 3.0 nullable is not a valid property on References and gets ignored, therefore the affected models
+    do not accept None values. This causes problems when rejecting messages which are are valid by the intention of the
+    specification but invalid due to the improper specification of nullable values.
+
+    This plugin modifies the parsed description documents, It removes nullable from the reference and modifies/replaces
+    it with a definition matching the intention of the specification.
+
+    This problem in present in DSP8010 and not fixed yet (as of version 2023.3/17 Jan 2024)
+    FIXME https://github.com/DMTF/Redfish-Tools/issues/464
+    """
+
+    @classmethod
+    def fixschema(cls, s):
+        if s.get("type", "object") == "object" and "properties" in s:
+            for pn, p in list(s["properties"].items()):
+                if "nullable" in p and "$ref" in p:
+                    ref = p["$ref"]
+                    del p["nullable"]
+                    del p["$ref"]
+                    s["properties"][pn] = {
+                        "type": "object",
+                        "additionalProperties": False,
+                        **p,
+                        "oneOf": [{"$ref": ref}, {"type": "object", "additionalProperties": False, "nullable": True}],
+                    }
+                else:
+                    cls.fixschema(p)
+        elif s.get("type", "array") == "array" and "items" in s:
+            if "nullable" in (items := s["items"]) and "$ref" in items:
+                del s["items"]["nullable"]
+                s["nullable"] = True
+
+    def parsed(self, ctx: "Document.Context") -> "Document.Context":
+        for name, s in ctx.document["components"]["schemas"].items():
+            self.fixschema(s)
+
+        return ctx
+
+
 from aiopenapi3.base import HTTP_METHODS
 
 

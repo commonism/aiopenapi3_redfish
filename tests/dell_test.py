@@ -18,7 +18,7 @@ from aiopenapi3.loader import RedirectLoader
 
 from aiopenapi3_redfish.client import Config, AsyncClient
 from aiopenapi3_redfish.errors import RedfishException
-from aiopenapi3_redfish.clinic import RedfishDocument, PayloadAnnotations, ExposeResponseHeaders
+from aiopenapi3_redfish.clinic import RedfishDocument, PayloadAnnotations, ExposeResponseHeaders, NullableRefs
 from aiopenapi3_redfish.Oem.Dell.clinic import (
     Document_vX as OemDocumentGenerator,
     Document_v7_00_60_00 as OemDocument,
@@ -82,6 +82,7 @@ async def client_(description_documents, target, auth, log):
         plugins=[
             RedfishDocument(t),
             PayloadAnnotations(),
+            NullableRefs(),
             ExposeResponseHeaders(),
             #            OemDocumentGenerator(t, description_documents / "dell" / "iDRAC_7.00.60.00_A00"),
             OemDocument(t),
@@ -225,7 +226,7 @@ async def client_(description_documents, target, auth, log):
     return client
 
 
-@pytest.mark.asyncio
+@pytest_asyncio.fixture
 async def client(client_):
     await client_.asyncInit()
     return client_

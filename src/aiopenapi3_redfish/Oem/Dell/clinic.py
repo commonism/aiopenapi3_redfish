@@ -577,14 +577,3 @@ class Message(aiopenapi3.plugin.Message):
             # '0000-00-00T00:00:00+00:00'
             del ctx.parsed["LastResetTime"]
         return ctx
-
-    @Parsed("/redfish/v1/Chassis/{ChassisId}")
-    def dr_Chassis(self, ctx: "Message"):
-        ctx.parsed["EnvironmentalClass"] = ctx.parsed.get("EnvironmentalClass", "A1") or "A1"
-        return ctx
-
-    @Parsed(
-        "/redfish/v1/Chassis/{ChassisId}/NetworkAdapters/{NetworkAdapterId}/NetworkDeviceFunctions/{NetworkDeviceFunctionId}"
-    )
-    def dr_NetworkDeviceFunction(self, ctx: "Message"):
-        ctx.parsed["FibreChannel"]["WWNSource"] = "ProvidedByFabric"
