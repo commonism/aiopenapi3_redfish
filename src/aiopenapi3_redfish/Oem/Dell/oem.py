@@ -315,6 +315,9 @@ class DellActions(aiopenapi3_redfish.entities.actions.Actions):
     _detour = None
 
 
+from .clinic import DellTaskServiceMonitor
+
+
 class DellOem(Oem):
     detour = [
         iDRACServiceRoot,
@@ -332,4 +335,5 @@ class DellOem(Oem):
         ManagerActionsOem,
         DellSoftwareInstallationService,
         DellActions,
+        DellTaskServiceMonitor,
     ]

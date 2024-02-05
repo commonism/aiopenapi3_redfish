@@ -18,7 +18,12 @@ from aiopenapi3.loader import RedirectLoader
 
 from aiopenapi3_redfish.client import Config, AsyncClient
 from aiopenapi3_redfish.errors import RedfishException
-from aiopenapi3_redfish.clinic import RedfishDocument, PayloadAnnotations, ExposeResponseHeaders, NullableRefs
+from aiopenapi3_redfish.clinic import (
+    RedfishDocument,
+    PayloadAnnotations,
+    ExposeResponseHeaders,
+    NullableRefs,
+)
 from aiopenapi3_redfish.Oem.Dell.clinic import (
     Document_vX as OemDocumentGenerator,
     Document_v7_00_60_00 as OemDocument,
@@ -305,9 +310,8 @@ async def test_Action_CertificateService_GenerateCSR(client: aiopenapi3_redfish.
 @pytest.mark.asyncio
 async def test_Action_EID_674_Manager_ExportSystemConfiguration(client: aiopenapi3_redfish.AsyncClient):
     r = await client.Manager.Actions.Oem["#OemManager.ExportSystemConfiguration"].export()
-    r = await client.TaskService.wait_for(r.Id)
-    payload = r.Messages[0].root.Message
-    assert payload.startswith("<SystemConfiguration")
+    payload = await client.TaskService.wait_for(r.Id)
+    assert payload.startswith(b"<SystemConfiguration")
 
 
 @pytest.mark.skip(reason="missing template")
@@ -327,8 +331,6 @@ async def test_Action_EID_674_Manager_ImportSystemConfiguration(client: aiopenap
 
 @pytest.mark.asyncio
 async def test_TaskManager(client):
-    client.api._base_url = "https://10.17.250.23"
-    client.api.authenticate(basicAuth=("root", "calvin"))
     async for i in client.TaskService.Tasks.list():
         print(i)
 

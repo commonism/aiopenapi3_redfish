@@ -1,14 +1,16 @@
 import inspect
 import copy
-import json
 import collections
 import yaml
 import io
+import json
 
 import yarl
 
 import aiopenapi3
 import aiopenapi3.plugin
+
+import aiopenapi3_redfish.clinic
 
 
 class _DocumentBase(aiopenapi3.plugin.Document):
@@ -156,6 +158,45 @@ paths:
             else:
                 print(f"patched {key} in {ctx.url} adding Unknown to enum")
 
+    def fixTaskService(self, ctx):
+        """
+        The TaskService serves as TaskMonitor as well
+        It may return data instead of a Task when finished to expose the result
+
+        FIXME not fixed by vendor as of 7.00.60.00
+        """
+        try:
+            pi = ctx.document["paths"]["/redfish/v1/TaskService/Tasks/{TaskId}"]
+        except KeyError:
+            return ctx
+
+        m = pi["get"]
+        if "*/*" not in m["responses"]["200"]["content"]:
+            """
+            For update, replace, and delete operations …
+            After processing of the task is complete, the modified resource may be returned in response to a request to the task monitor URI with the HTTP 200 OK status code.
+            """
+            m["responses"]["200"]["content"]["*/*"] = {"schema": {}}
+
+        if "201" not in m["responses"]:
+            """
+            For create operations …
+            After processing of the task is complete, the created resource may be returned in response to a request to the task monitor URI with the HTTP 201 Created status code.
+            """
+            m["responses"]["201"] = {"content": {"*/*": {"schema": {}}}, "description": "the created resource …"}
+
+        if "202" not in m["responses"]:
+            """
+            12.2 Asynchronous operations
+
+            As long as the operation is in process, the service shall return the HTTP 202 Accepted status code when the client performs a GET request on the task monitor URI.
+            """
+            m["responses"]["202"] = {
+                "content": {"application/json": m["responses"]["200"]["content"]["application/json"]},
+                "description": "the pending resource",
+            }
+        return ctx
+
 
 class Document_v6_10_00_00(_DocumentBase):
     VERSIONS = dict(
@@ -259,6 +300,7 @@ class Document_v6_10_00_00(_DocumentBase):
         self.removeInvalidVersions(ctx, self.VERSIONS)
         self.fixDellManager(ctx)
         self.fixResourceHealth(ctx)
+        self.fixTaskService(ctx)
         return ctx
 
 
@@ -370,6 +412,7 @@ class Document_v7_00_60_00(_DocumentBase):
 
         self.fixDellManager(ctx)
         self.fixResourceHealth(ctx)
+        self.fixTaskService(ctx)
         return ctx
 
 
@@ -424,6 +467,7 @@ class Document_vX(_DocumentBase):
 
         self.fixDellManager(ctx)
         self.fixResourceHealth(ctx)
+        self.fixTaskService(ctx)
         return ctx
 
 
@@ -437,8 +481,7 @@ def Parsed(*patterns, method=None):
 
 def _Routes(_route, *patterns, method=None):
     def x(f):
-        p = _route
-        setattr(f, p, (m := getattr(f, p, set())))
+        setattr(f, _route, (m := getattr(f, _route, set())))
         m.update(frozenset((p, tuple(method) if method else None) for p in patterns))
         return f
 
@@ -487,23 +530,51 @@ class Message(aiopenapi3.plugin.Message):
                             setattr(mapping[url], f"_{m}", i)
                     else:
                         mapping[url].default = i
-        return None
 
     def _dr(self, what, ctx):
         if (r := what.get(ctx.request.path, None)) and (m := getattr(r, ctx.request.method, None)):
             m(ctx)
         return ctx
 
-    def parsed(self, ctx: "Message.Context") -> "Message.Context":
+    def parsed(self, ctx: "aiopenapi3.plugin.Message.Context") -> "aiopenapi3.plugin.Message.Context":
         return self._dr(self._parsed, ctx)
 
-    def received(self, ctx: "Message.Context") -> "Message.Context":
+    def received(self, ctx: "aiopenapi3.plugin.Message.Context") -> "aiopenapi3.plugin.Message.Context":
+        """
+        7.5 Data modification requests
+
+        status_code 202 data modification requests do not return a Task as required by the spec but only a url to the
+        Task in the Location header
+        As the plugin interface is not async, we can not retrieve the actual Task and are limited create a Task limited
+        to the TaskId to work with
+        """
+        match ctx.request.method, ctx.status_code:
+            case ["post" | "put" | "patch", "202"]:
+                """
+                DSP0266 - 7.5.2 Modification success responses
+                """
+                location = ctx.headers["Location"]
+                _, _, jobid = location.rpartition("/")
+                ctx.received = json.dumps(
+                    {
+                        "@odata.id": location,
+                        "@odata.type": "#Task._.Task",
+                        "Id": jobid,
+                        "Name": "",
+                    }
+                )
         return self._dr(self._received, ctx)
 
     @Parsed("/redfish/v1/Managers/{ManagerId}/Oem/Dell/DellAttributes/{DellAttributesId}", method=["patch"])
     @Parsed("/redfish/v1/AccountService/Accounts/{ManagerAccountId}", method=["patch", "post"])
     @Parsed("/redfish/v1/SessionService/Sessions/{SessionId}", method=["delete"])
     def dr_NODATA(self, ctx: "Message.Context"):
+        """
+        The response to a modification request is empty and only carries a Success Message
+        As the modified response object is missing from the response, validation will fail
+        Forge a response which consists of the model modified and the changes to pass validation
+        """
+
         if not ((context := ctx.request.vars.context) and isinstance(context._v, ctx.expected_type.get_type())):
             return ctx
         assert ctx.request.method in ["post", "patch", "delete"]
@@ -521,51 +592,11 @@ class Message(aiopenapi3.plugin.Message):
         else:
             pass
 
-    @Received("/redfish/v1/TaskService/Tasks/{TaskId}", method=["get"])
-    def dr_Task(self, ctx: "Message.Context") -> "Message.Context":
-        if ctx.status_code != "200":
-            ctx.status_code = "200"
-        else:
-            if ctx.content_type.partition(";")[0].lower() != "application/json":
-                ctx.received = json.dumps(
-                    {
-                        "@odata.id": ctx.request.req.url,
-                        "@odata.type": "#Task._.Task",
-                        "Id": ctx.request.vars.parameters["TaskId"],
-                        "Name": "",
-                        "Messages": [{"MessageId": "", "Message": ctx.received.decode("utf-8")}],
-                    }
-                )
-                ctx.content_type = "application/json"
-
-        return ctx
-
     @Parsed("/redfish/v1/TaskService/Tasks/{TaskId}", method=["get"])
     def dr_Task_MessageId(self, ctx: "Message.Context") -> "Message.Context":
         for i in ctx.parsed.get("Messages", []):
             if "MessageId" not in i:
                 i["MessageId"] = ""
-        return ctx
-
-    @Received("/redfish/v1/Managers/{ManagerId}/Actions/Oem/EID_674_Manager.ImportSystemConfiguration", method=["post"])
-    @Received("/redfish/v1/Managers/{ManagerId}/Actions/Oem/EID_674_Manager.ExportSystemConfiguration", method=["post"])
-    @Received(
-        "/redfish/v1/Systems/{ComputerSystemId}/Oem/Dell/DellSoftwareInstallationService/Actions/DellSoftwareInstallationService.InstallFromRepository",
-        method=["post"],
-    )
-    def dr_ExportSystemConfiguration(self, ctx: "Message.Context") -> "Message.Context":
-        if ctx.status_code != "202":
-            return ctx
-        location = ctx.headers["Location"]
-        _, _, jobid = location.rpartition("/")
-        ctx.received = json.dumps(
-            {
-                "@odata.id": location,
-                "@odata.type": "#Task._.Task",
-                "Id": jobid,
-                "Name": "Export: Server Configuration Profile",
-            }
-        )
         return ctx
 
     @Parsed("/redfish/v1/Systems/{ComputerSystemId}")
@@ -577,3 +608,27 @@ class Message(aiopenapi3.plugin.Message):
             # '0000-00-00T00:00:00+00:00'
             del ctx.parsed["LastResetTime"]
         return ctx
+
+
+from aiopenapi3_redfish.entities.service import AsyncTaskService
+from typing import Union
+from aiopenapi3_redfish.oem import Detour
+
+
+@Detour("/redfish/v1/TaskService")
+@Detour("#TaskService..TaskService")
+@Detour("#ServiceRoot..ServiceRoot/Tasks")
+class DellTaskServiceMonitor(AsyncTaskService):
+    async def wait_for(
+        self, TaskId: str, pollInterval: int = 7, maxWait: int = 700
+    ) -> Union[AsyncTaskService.AsyncTask, bytes]:
+        """
+        Dell TaskService combines the functionality with the TaskMonitor and may return result data instead of Tasks
+        we modified the description document in fixTaskService() to accept response content types other than
+        application/json.
+        Therefore .index() can return non Task objects: bytes.
+        """
+        try:
+            return await super().wait_for(TaskId, pollInterval, maxWait)
+        except TypeError as e:
+            return e.args[0]

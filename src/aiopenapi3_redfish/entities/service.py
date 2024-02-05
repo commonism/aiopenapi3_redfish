@@ -193,6 +193,8 @@ class AsyncTaskService(AsyncResourceRoot):
     async def wait_for(self, TaskId: str, pollInterval: int = 7, maxWait: int = 700) -> AsyncTask:
         for i in range(maxWait // pollInterval):
             r = await self.Tasks.index(TaskId)
+            if not isinstance(r, AsyncResourceRoot):
+                raise TypeError(r)
             if r.TaskState == "Running" and r.TaskStatus == "OK":
                 await asyncio.sleep(pollInterval)
                 continue

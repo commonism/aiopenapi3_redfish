@@ -82,6 +82,8 @@ class AsyncResourceRoot(ResourceItem):
     async def asyncNew(cls, client: "AsyncClient", odata_id_: str):
         value = await client.get(odata_id_)
 
+        if not isinstance(value, (BaseModel, dict)):
+            return value
         tcls = client._mapping.classFromResourceType(value.odata_type_, "/")
         rcls = client._mapping.classFromRoute(odata_id_)
         if rcls and tcls:
@@ -179,5 +181,5 @@ class AsyncCollection(typing.Generic[T], AsyncResourceRoot):
                     continue
                 raise e
 
-    async def index(self, key):
+    async def index(self, key) -> T:
         return await self.T.asyncNew(self._client, f"{self._v.odata_id_}/{key}")
