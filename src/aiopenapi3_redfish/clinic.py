@@ -88,10 +88,8 @@ class NullableRefs(Document):
                     del p["nullable"]
                     del p["$ref"]
                     s["properties"][pn] = {
-                        "type": "object",
-                        "additionalProperties": False,
                         **p,
-                        "oneOf": [{"$ref": ref}, {"type": "object", "additionalProperties": False, "nullable": True}],
+                        "oneOf": [{"$ref": ref}, {"enum": ["null"]}],
                     }
                 else:
                     cls.fixschema(p)
