@@ -87,7 +87,7 @@ class AsyncResourceRoot(ResourceItem):
         tcls = client._mapping.classFromResourceType(value.odata_type_, "/")
         rcls = client._mapping.classFromRoute(odata_id_)
         if rcls and tcls:
-            assert tcls == rcls
+            assert tcls == rcls, (tcls, rcls)
 
         if cls == AsyncResourceRoot or cls == ResourceItem:
             cls = tcls or rcls or cls

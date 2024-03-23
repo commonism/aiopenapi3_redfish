@@ -28,6 +28,7 @@ from aiopenapi3_redfish.Oem.Dell.clinic import (
     Document_vX as OemDocumentGenerator,
     Document_v7_00_60_00 as OemDocument,
     Message as OemMessage,
+    DellTaskServiceMonitor,
 )
 from aiopenapi3_redfish.Oem.Dell.oem import DellOem
 

@@ -1,17 +1,19 @@
+import collections
+import json
+import inspect
+
 import aiopenapi3.v31
 import yaml
-
-from aiopenapi3.plugin import Init, Document, Message
-
+import aiopenapi3.plugin
 import aiopenapi3_redfish
 
 
-class RedfishDocument(Document):
+class RedfishDocument(aiopenapi3.plugin.Document):
     def __init__(self, url):
         self._url = url
         super().__init__()
 
-    def parsed(self, ctx: "Document.Context") -> "Document.Context":
+    def parsed(self, ctx: "aiopenapi3.plugin.Document.Context") -> "aiopenapi3.plugin.Document.Context":
         base = yaml.safe_load(
             f"""
             openapi: 3.1.0
@@ -65,7 +67,7 @@ class RedfishDocument(Document):
             del ctx.document["title"]
 
 
-class NullableRefs(Document):
+class NullableRefs(aiopenapi3.plugin.Document):
     """
     The DMTF OpenAPI reference description documents incorrectly use nullable on references in properties and arrays
     In OpenAPI 3.0 nullable is not a valid property on References and gets ignored, therefore the affected models
@@ -108,8 +110,8 @@ class NullableRefs(Document):
 from aiopenapi3.base import HTTP_METHODS
 
 
-class ExposeResponseHeaders(Init):
-    def paths(self, ctx: "Init.Context") -> "Init.Context":
+class ExposeResponseHeaders(aiopenapi3.plugin.Init):
+    def paths(self, ctx: "aiopenapi3.plugin.Init.Context") -> "aiopenapi3.plugin.Init.Context":
         # all return Location
         for p, pi in ctx.paths.paths.items():
             for m in HTTP_METHODS:
@@ -134,7 +136,7 @@ from aiopenapi3.base import SchemaBase
 from typing import Iterable
 
 
-class PayloadAnnotations(Init):
+class PayloadAnnotations(aiopenapi3.plugin.Init):
     def __init__(self):
         super().__init__()
 
@@ -151,3 +153,98 @@ class PayloadAnnotations(Init):
     def resolved(self, ctx: "Init.Context") -> "Init.Context":
         self._annotate(ctx.resolved)
         return ctx
+
+
+def Received(*patterns, method=None):
+    return _Routes("_received", *patterns, method=method)
+
+
+def Parsed(*patterns, method=None):
+    return _Routes("_parsed", *patterns, method=method)
+
+
+def _Routes(_route, *patterns, method=None):
+    def x(f):
+        setattr(f, _route, (m := getattr(f, _route, set())))
+        m.update(frozenset((p, tuple(method) if method else None) for p in patterns))
+        return f
+
+    return x
+
+
+class Message(aiopenapi3.plugin.Message):
+    class Methods:
+        def __init__(self):
+            self._get = self._post = self._patch = self._put = self._delete = None
+            self.default = None
+
+        @property
+        def get(self):
+            return self._get or self.default
+
+        @property
+        def post(self):
+            return self._post or self.default
+
+        @property
+        def patch(self):
+            return self._patch or self.default
+
+        @property
+        def put(self):
+            return self._put or self.default
+
+        @property
+        def delete(self):
+            return self._delete or self.default
+
+    def __init__(self):
+        super().__init__()
+        self._received = collections.defaultdict(lambda: Message.Methods())
+        self._parsed = collections.defaultdict(lambda: Message.Methods())
+        for op, mapping in {"_received": self._received, "_parsed": self._parsed}.items():
+            for name, i in filter(
+                lambda kv: kv[1] and inspect.ismethod(kv[1]) and hasattr(kv[1], op),
+                map(lambda x: (x, getattr(self, x)), dir(self)),
+            ):
+                objmap = getattr(i, op)
+                for url, methods in objmap:
+                    if methods:
+                        for m in methods:
+                            setattr(mapping[url], f"_{m}", i)
+                    else:
+                        mapping[url].default = i
+
+    def _dr(self, what, ctx):
+        if (r := what.get(ctx.request.path, None)) and (m := getattr(r, ctx.request.method, None)):
+            m(ctx)
+        return ctx
+
+    def parsed(self, ctx: "aiopenapi3.plugin.Message.Context") -> "aiopenapi3.plugin.Message.Context":
+        return self._dr(self._parsed, ctx)
+
+    def received(self, ctx: "aiopenapi3.plugin.Message.Context") -> "aiopenapi3.plugin.Message.Context":
+        """
+        7.5 Data modification requests
+
+        status_code 202 data modification requests do not return a Task as required by the spec but only a url to the
+        Task in the Location header
+        As the plugin interface is not async, we can not retrieve the actual Task and are limited create a Task limited
+        to the TaskId to work with
+        """
+        match ctx.request.method, ctx.status_code:
+            case ["post" | "put" | "patch", "202"]:
+                """
+                DSP0266 - 7.5.2 Modification success responses
+                """
+                location = ctx.headers["Location"]
+                _, _, jobid = location.rpartition("/")
+                ctx.received = json.dumps(
+                    {
+                        "@odata.id": location,
+                        "@odata.type": "#Task._.Task",
+                        "Id": jobid,
+                        "Name": "",
+                    }
+                )
+        return self._dr(self._received, ctx)
