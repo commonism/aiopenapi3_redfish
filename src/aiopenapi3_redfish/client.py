@@ -129,6 +129,11 @@ class AsyncClient:
         req = self.api._[(routepath, method)]
         if parameters is not None:
             p.update(parameters)
+
+        """PATCH requires If-Match <etag> headers"""
+        if method == "patch" and context and context.odata_etag_:
+            req.req.headers["If-Match"] = context.odata_etag_
+
         return await self._request_send(req, p, data, context)
 
     async def _request_send(self, req, parameters, data, context=None, **kwargs):
