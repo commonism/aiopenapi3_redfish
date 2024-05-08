@@ -30,7 +30,7 @@ class ResourceItem:
         if not isinstance(v, (BaseModel, dict, list)):
             return v
 
-        path = "/"
+        path = yarl.URL("/")
         root = self._root
         if isinstance(v, BaseModel) and "odata_type_" in v.model_fields:
             odata_type = v.odata_type_
@@ -52,10 +52,10 @@ class ResourceItem:
         return await AsyncResourceRoot.asyncNew(self._root._client, self._v.odata_id_)
 
     async def patch(self, *args, **kwargs):
-        return await self._root._client.patch(self._v.odata_id_, *args, context=self, **kwargs)
+        return await self._root._client.patch(self._v.odata_id_, *args, context=self, **kwargs)  # type: ignore
 
     async def delete(self):
-        return await self._root._client.delete(self._v.odata_id_, context=self)
+        return await self._root._client.delete(self._v.odata_id_, context=self)  # type: ignore
 
     def __repr__(self):
         return f"{self.__class__.__name__} {self._root} {self._path}"
@@ -79,7 +79,7 @@ class AsyncResourceRoot(ResourceItem):
         return await self._client.delete(self._v.odata_id_, context=self)
 
     @classmethod
-    async def asyncNew(cls, client: "AsyncClient", odata_id_: str):
+    async def asyncNew(cls, client: "AsyncClient", odata_id_: str) -> "AsyncResourceRoot":
         value = await client.get(odata_id_)
 
         if not isinstance(value, (BaseModel, dict)):
@@ -124,6 +124,8 @@ class AsyncResourceRoot(ResourceItem):
                         value = await cls.asyncNew(self._client, at)
                 except KeyError:
                     value = dict(undefined=True)
+                except RedfishException as e:
+                    value = dict(undefined=True)
             elif issubclass(cls, ResourceItem) or cls == ResourceItem:
                 value = cls(self, yarl.URL(field), getattr(self._v, attr))
             else:
@@ -134,10 +136,10 @@ class AsyncResourceRoot(ResourceItem):
         return f"{self.__class__.__name__} {self._v!r}"
 
 
-T = typing.TypeVar("T")
+CollectionItem = typing.TypeVar("CollectionItem")
 
 
-class AsyncCollection(typing.Generic[T], AsyncResourceRoot):
+class AsyncCollection(typing.Generic[CollectionItem], AsyncResourceRoot):
     def __init__(self, client=None, data=None):
         super().__init__(client, data)
         self._data = data or {}
@@ -155,13 +157,13 @@ class AsyncCollection(typing.Generic[T], AsyncResourceRoot):
 
         return self._T
 
-    async def asyncNew(self, client: "AsyncClient", odata_id_: str):
+    async def asyncNew(self, client: "AsyncClient", odata_id_: str) -> "AsyncCollection":
         value = await client.get(odata_id_)
         super().__init__(client, value)
         self._data = self._v.Members
         return self
 
-    async def first(self) -> T:
+    async def first(self) -> CollectionItem:
         i = self._data[0]
         v = await self.T.asyncNew(self._client, i.odata_id_)
         return v
@@ -181,5 +183,5 @@ class AsyncCollection(typing.Generic[T], AsyncResourceRoot):
                     continue
                 raise e
 
-    async def index(self, key) -> T:
+    async def index(self, key) -> CollectionItem:
         return await self.T.asyncNew(self._client, f"{self._v.odata_id_}/{key}")

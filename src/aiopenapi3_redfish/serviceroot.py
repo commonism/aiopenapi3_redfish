@@ -1,3 +1,4 @@
+import typing
 from typing import Optional
 from .base import AsyncCollection, AsyncResourceRoot
 
@@ -16,6 +17,9 @@ from aiopenapi3_redfish.entities.service import (
 from aiopenapi3_redfish.entities.manager import AsyncManager
 from aiopenapi3_redfish.oem import Detour
 
+if typing.TYPE_CHECKING:
+    from .client import AsyncClient
+
 
 @Detour("/redfish/v1")
 @Detour("#ServiceRoot..ServiceRoot")
@@ -27,14 +31,14 @@ class AsyncServiceRoot(AsyncResourceRoot):
     Fabrics: AsyncCollection[AsyncFabric]
     Managers: AsyncCollection[AsyncManager]
     Manager: Optional[AsyncManager]
-    TaskService: AsyncTaskService
+    Tasks: AsyncTaskService
     TelemetryService: AsyncTelemetryService
     UpdateService: AsyncUpdateService
     SessionService: AsyncSessionService
     Systems: AsyncCollection[AsyncSystem]
 
     @classmethod
-    async def asyncNew(cls, client: "Client", odata_id_: str):
+    async def asyncNew(cls, client: "AsyncClient", odata_id_: str):
         obj = await super().asyncNew(client, odata_id_)
         await obj.asyncInit()
         return obj
@@ -42,14 +46,14 @@ class AsyncServiceRoot(AsyncResourceRoot):
     async def asyncInit(self):
         await super().asyncInit()
         assert self.AccountService
-        assert self.CertificateService
+        #        assert self.CertificateService
         assert self.Chassis
         assert self.EventService
-        assert self.Fabrics
+        #        assert self.Fabrics
         assert self.Managers
         self.Manager = None
         assert self.Tasks
-        assert self.TelemetryService
+        #        assert self.TelemetryService
         assert self.UpdateService
         assert self.SessionService
         assert self.Systems

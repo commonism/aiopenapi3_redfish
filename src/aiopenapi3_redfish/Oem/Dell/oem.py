@@ -72,7 +72,7 @@ class DellAttributes(AsyncSettings):
         ExecuteDebugCommands = 0x00000100
 
     def list(self):
-        r = collections.defaultdict(lambda: collections.defaultdict(dict))
+        r: dict[str, dict[str, dict[str, str]]] = collections.defaultdict(lambda: collections.defaultdict(dict))
 
         def compare(kv):
             cls, idx, attr = kv[0]

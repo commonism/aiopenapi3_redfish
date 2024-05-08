@@ -1,9 +1,13 @@
 from typing import Dict, Optional
+import typing
 
 import aiopenapi3.model
 
 from aiopenapi3_redfish.base import ResourceItem
 from aiopenapi3_redfish.oem import Detour
+
+if typing.TYPE_CHECKING:
+    from ..client import AsyncClient
 
 
 class Action:

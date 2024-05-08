@@ -1,14 +1,17 @@
 import copy
 import collections
-import yaml
 import io
-
+import typing
 import yarl
 
-import aiopenapi3
+import yaml
+
 import aiopenapi3.plugin
 
 import aiopenapi3_redfish.clinic
+
+if typing.TYPE_CHECKING:
+    pass
 
 
 class _DocumentBase(aiopenapi3.plugin.Document):
@@ -427,8 +430,8 @@ class Document_vX(_DocumentBase):
         super().__init__(url)
         self.dir = directory
 
-    def removeInvalidVersions(self, ctx: aiopenapi3.plugin.Document.Context):
-        r = collections.defaultdict(lambda: list())
+    def removeInvalidVersions(self, ctx: aiopenapi3.plugin.Document.Context) -> None:
+        r: dict[str, list[str]] = collections.defaultdict(lambda: list())
         for name, value in ctx.document["components"]["schemas"].items():
             if "anyOf" not in value:
                 continue
@@ -477,7 +480,7 @@ class Message(aiopenapi3_redfish.clinic.Message):
         "/redfish/v1/AccountService/Accounts/{ManagerAccountId}", method=["patch", "post"]
     )
     @aiopenapi3_redfish.clinic.Parsed("/redfish/v1/SessionService/Sessions/{SessionId}", method=["delete"])
-    def dr_NODATA(self, ctx: "Message.Context"):
+    def dr_NODATA(self, ctx: "aiopenapi3.plugin.Message.Context"):
         """
         The response to a modification request is empty and only carries a Success Message
         As the modified response object is missing from the response, validation will fail
@@ -504,14 +507,14 @@ class Message(aiopenapi3_redfish.clinic.Message):
             pass
 
     @aiopenapi3_redfish.clinic.Parsed("/redfish/v1/TaskService/Tasks/{TaskId}", method=["get"])
-    def dr_Task_MessageId(self, ctx: "Message.Context") -> "Message.Context":
+    def dr_Task_MessageId(self, ctx: "aiopenapi3.plugin.Message.Context") -> "aiopenapi3.plugin.Message.Context":
         for i in ctx.parsed.get("Messages", []):
             if "MessageId" not in i:
                 i["MessageId"] = ""
         return ctx
 
     @aiopenapi3_redfish.clinic.Parsed("/redfish/v1/Systems/{ComputerSystemId}")
-    def dr_LastResetTime(self, ctx: "Message"):
+    def dr_LastResetTime(self, ctx: "aiopenapi3.plugin.Message.Context") -> "aiopenapi3.plugin.Message.Context":
         if (
             "LastResetTime" in ctx.expected_type.get_type().model_fields
             and ctx.parsed.get("LastResetTime", None) == "0000-00-00T00:00:00+00:00"

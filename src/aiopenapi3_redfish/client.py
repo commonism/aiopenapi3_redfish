@@ -18,14 +18,22 @@ from aiopenapi3_redfish.base import AsyncResourceRoot
 if typing.TYPE_CHECKING:
     from aiopenapi3_redfish.entities.service import (
         AsyncAccountService,
+        AsyncCertificateService,
+        AsyncChassis,
+        AsyncEventService,
         AsyncUpdateService,
         AsyncTelemetryService,
-        AsyncCertificateService,
         AsyncSessionService,
-        AsyncEventService,
         AsyncTaskService,
+        AsyncTelemetryService,
+        AsyncUpdateService,
+        AsyncSystem,
     )
+    from .entities.collections import AsyncCollection
     from .serviceroot import AsyncServiceRoot
+    from .entities.manager import AsyncManager
+    from .oem import Mapping
+
     from aiopenapi3.plugin import Plugin
     from aiopenapi3.loader import Loader
 
@@ -36,14 +44,14 @@ class Config:
         target: str,
         username: str,
         password: str,
-        cache: Path = None,
-        plugins: List["Plugin"] = None,
-        locations: List["Loader"] = None,
+        cache: Path | None = None,
+        plugins: List["Plugin"] | None = None,
+        locations: List["Loader"] | None = None,
         session_factory: Union[httpx.AsyncClient | httpx.Client] = httpx.AsyncClient,
     ):
         self.target: str = target
         self.auth = (username, password)
-        self.cache: Path = cache
+        self.cache: Path | None = cache
         self.plugins: List["Plugin"] = plugins or []
         self.locations: List["Loader"] = locations or []
         self.session_factory: Union[httpx.AsyncClient | httpx.Client] = session_factory
@@ -151,7 +159,7 @@ class AsyncClient:
         return self._serviceroot.CertificateService
 
     @property
-    def Chassis(self) -> "AsyncChassis":
+    def Chassis(self) -> "AsyncCollection[AsyncChassis]":
         return self._serviceroot.Chassis
 
     @property
@@ -163,7 +171,7 @@ class AsyncClient:
         return self._serviceroot.JobService
 
     @property
-    def Manager(self) -> "Manager":
+    def Manager(self) -> "AsyncManager":
         return self._serviceroot.Manager
 
     @property
@@ -171,7 +179,7 @@ class AsyncClient:
         return self._serviceroot.SessionService
 
     @property
-    def Systems(self) -> "Any":
+    def Systems(self) -> "AsyncCollection[AsyncSystem]":
         return self._serviceroot.Systems
 
     @property

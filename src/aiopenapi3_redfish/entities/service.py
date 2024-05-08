@@ -1,4 +1,5 @@
 import asyncio
+import typing
 from typing import Literal
 
 import aiopenapi3.errors
@@ -14,7 +15,9 @@ from aiopenapi3_redfish.oem import Detour
 class AsyncAccountService(AsyncResourceRoot):
     class ManagerAccount(AsyncResourceRoot):
         async def setPassword(self, password):
-            return await self.patch(data={"Password": password})
+            account = await self.patch(data={"Password": password})
+            assert account
+            return account
 
 
 @Detour("/redfish/v1/CertificateService")
@@ -66,10 +69,12 @@ class AsyncFabric(AsyncResourceRoot):
 @Detour("#JobService..JobService")
 @Detour("#ServiceRoot..ServiceRoot/JobService")
 class AsyncJobService(AsyncResourceRoot):
-    async def wait_for(self, *JobIds: str, pollInterval: int = 7, maxWait: int = 700) -> AsyncResourceRoot:
-        todo = set(JobIds)
-        done = list()
-        error = list()
+    async def wait_for(
+        self, *JobIds: str, pollInterval: int = 7, maxWait: int = 700
+    ) -> tuple[set[str], list[typing.Any], list[typing.Any]]:
+        todo: set[str] = set(JobIds)
+        done: list[typing.Any] = list()
+        error: list[typing.Any] = list()
 
         while len(todo):
             for JobId in list(todo):
@@ -201,7 +206,7 @@ class AsyncTaskService(AsyncResourceRoot):
             break
         else:
             raise TimeoutError(TaskId)
-        return r
+        return typing.cast(AsyncTaskService.AsyncTask, r)
 
 
 @Detour("/redfish/v1/TelemetryService")

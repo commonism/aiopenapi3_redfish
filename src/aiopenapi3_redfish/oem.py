@@ -1,11 +1,21 @@
 import collections
-
+import typing
+from typing import Optional, Union
 import routes
 
 from .odata import ResourceType
 
 
-def Detour(*patterns):
+if typing.TYPE_CHECKING:
+    from .base import ResourceItem
+    from .entities.actions import Action
+
+    ResourceItemType: typing.TypeAlias = typing.Type[ResourceItem]
+    ActionType: typing.TypeAlias = typing.Type[Action]
+    DetourType: typing.TypeAlias = ResourceItemType | ActionType
+
+
+def Detour(*patterns: str) -> typing.Callable[["DetourType"], "DetourType"]:
     def decorator(f):
         p = "_detour"
         if (m := getattr(f, p, None)) is None:
@@ -17,7 +27,7 @@ def Detour(*patterns):
     return decorator
 
 
-def splitTypeDetour(type_: str):
+def splitTypeDetour(type_: str) -> tuple[str, str]:
     """
 
     :param type_: #name.version.name/path
@@ -34,11 +44,11 @@ def splitTypeDetour(type_: str):
 
 
 class Lookup:
-    detour: []
+    detour: list["DetourType"] = []
 
     def __init__(self):
         self._action_routes = routes.Mapper()
-        self._context_map = collections.defaultdict(lambda: dict())
+        self._context_map: dict[str, dict[str, "DetourType"]] = collections.defaultdict(lambda: dict())
         for i in self.detour:
             m: str
             detour = getattr(i, "_detour")
@@ -49,10 +59,13 @@ class Lookup:
                 else:
                     self._action_routes.connect(m, cls=i)
 
-    def classFromResourceType(self, odata_type_: str, path: str):
+    def classFromResourceType(
+        self, odata_type_: str, path: str | None
+    ) -> Optional[Union["DetourType", dict[str, "DetourType"]]]:
         t = ResourceType(odata_type_)
         for v in t.versioned, t.unversioned:
             try:
+                r: "DetourType" | dict[str, "DetourType"]
                 if v in self._context_map:
                     if path is not None:
                         r = self._context_map[v][path]
@@ -65,7 +78,7 @@ class Lookup:
                 continue
         return None
 
-    def classFromRoute(self, url: str):
+    def classFromRoute(self, url: str) -> Optional["ResourceItem"]:
         assert isinstance(url, str), f"{url} {type(url)}"
         r = self._action_routes.routematch(url)
         if r is None:
@@ -83,7 +96,7 @@ class Mapping:
         self._oem = oem
         self._defaults = defaults
 
-    def classFromResourceType(self, odata_type_: str, path: str):
+    def classFromResourceType(self, odata_type_: str, path: str | None):
         r = dict()
         for i in self._oem, self._defaults:
             if (v := i.classFromResourceType(odata_type_, path)) is not None:

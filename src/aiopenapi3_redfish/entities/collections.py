@@ -57,4 +57,5 @@ class SystemsCollection(AsyncCollection[AsyncSystem]):
 
 @Detour("#TaskService..TaskService/Tasks")
 class TaskCollection(AsyncCollection[AsyncTaskService.AsyncTask]):
-    pass
+    def index(self, key) -> AsyncTaskService.AsyncTask | bytes:
+        return super().index(key)

@@ -1,10 +1,14 @@
 import collections
 import json
 import inspect
-
-import aiopenapi3.v31
+import typing
+from typing import Iterable
 import yaml
+
+from aiopenapi3.base import SchemaBase, HTTP_METHODS
+import aiopenapi3.v31
 import aiopenapi3.plugin
+
 import aiopenapi3_redfish
 
 
@@ -100,14 +104,11 @@ class NullableRefs(aiopenapi3.plugin.Document):
                 del s["items"]["nullable"]
                 s["nullable"] = True
 
-    def parsed(self, ctx: "Document.Context") -> "Document.Context":
+    def parsed(self, ctx: "aiopenapi3.plugin.Document.Context") -> "aiopenapi3.plugin.Document.Context":
         for name, s in ctx.document["components"]["schemas"].items():
             self.fixschema(s)
 
         return ctx
-
-
-from aiopenapi3.base import HTTP_METHODS
 
 
 class ExposeResponseHeaders(aiopenapi3.plugin.Init):
@@ -132,10 +133,6 @@ class ExposeResponseHeaders(aiopenapi3.plugin.Init):
         return ctx
 
 
-from aiopenapi3.base import SchemaBase
-from typing import Iterable
-
-
 class PayloadAnnotations(aiopenapi3.plugin.Init):
     def __init__(self):
         super().__init__()
@@ -150,7 +147,7 @@ class PayloadAnnotations(aiopenapi3.plugin.Init):
             for ppattern, _ in pp.items():
                 schema.patternProperties[ppattern] = dict()
 
-    def resolved(self, ctx: "Init.Context") -> "Init.Context":
+    def resolved(self, ctx: aiopenapi3.plugin.Init.Context) -> aiopenapi3.plugin.Init.Context:
         self._annotate(ctx.resolved)
         return ctx
 
@@ -164,7 +161,12 @@ def Parsed(*patterns, method=None):
 
 
 def _Routes(_route, *patterns, method=None):
-    def x(f):
+    def x(
+        f: typing.Callable[
+            [aiopenapi3_redfish.clinic.Message, aiopenapi3.plugin.Message.Context], aiopenapi3.plugin.Message.Context
+        ]
+    ):
+        m: set[tuple[str, list[HTTP_METHODS] | None]]
         setattr(f, _route, (m := getattr(f, _route, set())))
         m.update(frozenset((p, tuple(method) if method else None) for p in patterns))
         return f
@@ -200,8 +202,8 @@ class Message(aiopenapi3.plugin.Message):
 
     def __init__(self):
         super().__init__()
-        self._received = collections.defaultdict(lambda: Message.Methods())
-        self._parsed = collections.defaultdict(lambda: Message.Methods())
+        self._received: dict[str, Message.Methods] = collections.defaultdict(lambda: Message.Methods())
+        self._parsed: dict[str, Message.Methods] = collections.defaultdict(lambda: Message.Methods())
         for op, mapping in {"_received": self._received, "_parsed": self._parsed}.items():
             for name, i in filter(
                 lambda kv: kv[1] and inspect.ismethod(kv[1]) and hasattr(kv[1], op),
