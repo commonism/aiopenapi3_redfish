@@ -37,10 +37,10 @@ jobs:
       name: Get description documents
       run: |
         mkdir ~/www-data
-        wget --directory-prefix=~/www-data https://www.dmtf.org/sites/default/files/standards/documents/DSP2043_2024.1.zip
-        wget --directory-prefix=~/www-data https://www.dmtf.org/sites/default/files/standards/documents/DSP8010_2024.1.zip
-        wget --directory-prefix=~/www-data https://www.snia.org/sites/default/files/technical-work/swordfish/release/v1.2.6/zip/Swordfish_v1.2.6.zip
-        unzip ~/www-data/Swordfish_v1.2.6.zip '*_Schema.zip' -d ~/www-data/
+        wget --directory-prefix=$HOME/www-data https://www.dmtf.org/sites/default/files/standards/documents/DSP2043_2024.1.zip
+        wget --directory-prefix=$HOME/www-data https://www.dmtf.org/sites/default/files/standards/documents/DSP8010_2024.1.zip
+        wget --directory-prefix=$HOME/www-data https://www.snia.org/sites/default/files/technical-work/swordfish/release/v1.2.6/zip/Swordfish_v1.2.6.zip
+        unzip $HOME/www-data/Swordfish_v1.2.6.zip '*_Schema.zip' -d $HOME/www-data/
     - name: Setup description documents
       run: |
         mkdir -p src/aiopenapi3_redfish/description_documents/DSP8010/2024.1/
