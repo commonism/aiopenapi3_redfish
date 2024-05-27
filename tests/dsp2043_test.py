@@ -195,6 +195,14 @@ async def test_single_fail(client):
 
 
 @pytest.mark.asyncio
+async def test_single_pass(client):
+    mock = "public-rackmount1"
+    file = "index.json"
+    client.dsp2043 = dsp2043zip() / mock
+    await _test_single_file(client, Path(file))
+
+
+@pytest.mark.asyncio
 async def test_iter(client):
     pages: set[yarl.URL] = set()
     todo = set()
