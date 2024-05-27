@@ -25,6 +25,13 @@ jobs:
       run: sudo ethtool -K eth0 tx off rx off
     - name: Setup description documents
       run: |
+        mkdir -p src/aiopenapi3_redfish/description_documents/DSP8010/2024.1/
+        wget https://www.dmtf.org/sites/default/files/standards/documents/DSP8010_2024.1.zip
+        unzip -j DSP8010_2024.1.zip 'openapi/*.yaml' -d src/aiopenapi3_redfish/description_documents/DSP8010/2024.1/
+        mkdir -p src/aiopenapi3_redfish/description_documents/Swordfish/v1.2.6/
+        wget https://www.snia.org/sites/default/files/technical-work/swordfish/release/v1.2.6/zip/Swordfish_v1.2.6.zip
+        unzip Swordfish_v1.2.6.zip '*_Schema.zip'
+        unzip -j *_Schema.zip  'yaml/*.yaml' -d src/aiopenapi3_redfish/description_documents/Swordfish/v1.2.6/
         pdm run pytest --cov=tests/test_description_documents --cov-report=xml:./coverage/reports/coverage-description_documents-tests.xml tests/description_documents_test.py
     - name: Generate coverage report (DSP 2043)
       run: |
