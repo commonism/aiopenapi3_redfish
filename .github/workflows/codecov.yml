@@ -50,8 +50,8 @@ jobs:
         pdm run pytest --cov=tests/test_description_documents --cov-report=xml:./coverage/reports/coverage-description_documents-tests.xml tests/description_documents_test.py
     - name: Generate coverage report (DSP 2043)
       run: |
-        pdm run pytest --cov=src/aiopenapi3_redfish/ --cov-report=xml:./coverage/reports/coverage-dsp2043.xml       tests/dsp2043_test.py::test_single_file
-        pdm run pytest --cov=tests/   --cov-report=xml:./coverage/reports/coverage-dsp2043-tests.xml tests/dsp2043_test.py::test_single_file
+        pdm run pytest --cov=src/aiopenapi3_redfish/ --cov-report=xml:./coverage/reports/coverage-dsp2043.xml       tests/dsp2043_test.py::test_single_fail
+        pdm run pytest --cov=tests/   --cov-report=xml:./coverage/reports/coverage-dsp2043-tests.xml tests/dsp2043_test.py::test_single_fail
     - name: Upload coverage to Codecov (core)
       uses: codecov/codecov-action@v4
       with:

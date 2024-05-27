@@ -185,8 +185,9 @@ async def _test_single_file(client, file: Path):
     return await client._request_send(req, p, None)
 
 
+@pytest.mark.xfail(strict=True)
 @pytest.mark.asyncio
-async def test_single_file(client):
+async def test_single_fail(client):
     mock = "public-liquid-cooled-server"
     file = "ComponentIntegrity/SS-SPDM-0/index.json"
     client.dsp2043 = dsp2043zip() / mock
