@@ -114,12 +114,14 @@ class MockDocument(aiopenapi3.plugin.Document):
 def dsp2043zip():
     url = yarl.URL("https://www.dmtf.org/sites/default/files/standards/documents/DSP2043_2024.1.zip")
 
-    if not (p := Path("/tmp") / Path(url.path).name).exists():
-        with httpx.Client() as f, p.open("wb") as t:
-            r = f.get(str(url))
-            t.write(r.content)
+    for i in ["~/www-data", "/tmp/"]:
+        if (p := Path(i).expanduser() / Path(url.path).name).exists():
+            return zipfile.Path(p)
 
-    return zipfile.Path(p)
+    with httpx.Client() as f:
+        r = f.get(str(url))
+        (p := (Path("/tmp/") / url.name)).write_bytes(r.content)
+        return zipfile.Path(p)
 
 
 def pytest_generate_tests(metafunc):

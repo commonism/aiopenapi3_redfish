@@ -23,15 +23,30 @@ jobs:
     # https://github.com/actions/virtual-environments/issues/1187
     - name: tune linux network
       run: sudo ethtool -K eth0 tx off rx off
+
+    - name: Cache Description documents
+      id: cache-www-data
+      uses: actions/cache@v3
+      env:
+        cache-name: cache-www-data
+      with:
+        path: ~/www-data/
+        key: ${{ env.cache-name }}-20240527
+
+    - if: ${{ steps.cache-www-data.outputs.cache-hit != 'true' }}
+      name: Get description documents
+      run: |
+        mkdir ~/www-data
+        wget --directory-prefix=~/www-data https://www.dmtf.org/sites/default/files/standards/documents/DSP2043_2024.1.zip
+        wget --directory-prefix=~/www-data https://www.dmtf.org/sites/default/files/standards/documents/DSP8010_2024.1.zip
+        wget --directory-prefix=~/www-data https://www.snia.org/sites/default/files/technical-work/swordfish/release/v1.2.6/zip/Swordfish_v1.2.6.zip
+        unzip ~/www-data/Swordfish_v1.2.6.zip '*_Schema.zip' -d ~/www-data/
     - name: Setup description documents
       run: |
         mkdir -p src/aiopenapi3_redfish/description_documents/DSP8010/2024.1/
-        wget https://www.dmtf.org/sites/default/files/standards/documents/DSP8010_2024.1.zip
-        unzip -j DSP8010_2024.1.zip 'openapi/*.yaml' -d src/aiopenapi3_redfish/description_documents/DSP8010/2024.1/
+        unzip -j ~/www-data/DSP8010_2024.1.zip 'openapi/*.yaml' -d src/aiopenapi3_redfish/description_documents/DSP8010/2024.1/
         mkdir -p src/aiopenapi3_redfish/description_documents/Swordfish/v1.2.6/
-        wget https://www.snia.org/sites/default/files/technical-work/swordfish/release/v1.2.6/zip/Swordfish_v1.2.6.zip
-        unzip Swordfish_v1.2.6.zip '*_Schema.zip'
-        unzip -j *_Schema.zip  'yaml/*.yaml' -d src/aiopenapi3_redfish/description_documents/Swordfish/v1.2.6/
+        unzip -j ~/www-data/Swordfish_v1.2.6_Schema.zip  'yaml/*.yaml' -d src/aiopenapi3_redfish/description_documents/Swordfish/v1.2.6/
         pdm run pytest --cov=tests/test_description_documents --cov-report=xml:./coverage/reports/coverage-description_documents-tests.xml tests/description_documents_test.py
     - name: Generate coverage report (DSP 2043)
       run: |
