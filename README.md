@@ -1,5 +1,11 @@
 # aiopenapi3_redfish
+
 Python3 DMTF Redfish client library built upon OpenAPI3/aiopenapi3.
+
+[![Test](https://github.com/commonism/aiopenapi3_redfish/workflows/Codecov/badge.svg?event=push&branch=development)](https://github.com/commonism/aiopenapi3_redfish/actions?query=workflow%3ACodecov+event%3Apush+branch%3Adevelopment)
+[![pre-commit.ci status](https://results.pre-commit.ci/badge/github/commonism/aiopenapi3_redfish/development.svg)](https://results.pre-commit.ci/latest/github/commonism/aiopenapi3_redfish/development)
+[![Coverage](https://img.shields.io/codecov/c/github/commonism/aiopenapi3_redfish)](https://codecov.io/gh/commonism/aiopenapi3_redfish)
+
 
 DMTF Redfish / SNIA Swordfish OpenAPI3 description documents are processed and adjusted to create an aiopenapi3 client.
 A very thin layer is added on top to improve the usability.
