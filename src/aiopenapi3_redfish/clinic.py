@@ -2,7 +2,7 @@ import collections
 import json
 import inspect
 import typing
-from typing import Iterable
+from collections.abc import Iterable
 import yaml
 
 from aiopenapi3.base import SchemaBase, HTTP_METHODS
@@ -86,23 +86,36 @@ class NullableRefs(aiopenapi3.plugin.Document):
     """
 
     @classmethod
-    def fixschema(cls, s):
+    def fixschema(cls, s: dict[str, str]):
+        # 2024.1
+        if s.get("type", None) is None and "oneOf" in s:
+            try:
+                s["oneOf"].remove({"enum": ["null"]})
+            except ValueError:
+                pass
+            else:
+                s["oneOf"].append({"enum": [None]})
+            return
+
         if s.get("type", "object") == "object" and "properties" in s:
             for pn, p in list(s["properties"].items()):
-                if "nullable" in p and "$ref" in p:
-                    ref = p["$ref"]
-                    del p["nullable"]
-                    del p["$ref"]
-                    s["properties"][pn] = {
-                        **p,
-                        "oneOf": [{"$ref": ref}, {"enum": ["null"]}],
-                    }
-                else:
-                    cls.fixschema(p)
+                cls.fixschema(p)
         elif s.get("type", "array") == "array" and "items" in s:
-            if "nullable" in (items := s["items"]) and "$ref" in items:
-                del s["items"]["nullable"]
-                s["nullable"] = True
+            cls.fixschema(s["items"])
+        elif (ref := s.get("$ref")) is not None and s.get("nullable") is True:
+            del s["nullable"]
+            del s["$ref"]
+            if "type" in s:
+                del s["type"]
+            n = {
+                **s,
+                "oneOf": [
+                    {"$ref": ref},
+                    {"enum": [None]},
+                ],
+            }
+            s.clear()
+            s.update(n)
 
     def parsed(self, ctx: "aiopenapi3.plugin.Document.Context") -> "aiopenapi3.plugin.Document.Context":
         for name, s in ctx.document["components"]["schemas"].items():
