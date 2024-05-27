@@ -1,4 +1,3 @@
-from typing import Dict, Optional
 import typing
 
 import aiopenapi3.model
@@ -11,11 +10,11 @@ if typing.TYPE_CHECKING:
 
 
 class Action:
-    def __init__(self, client: "AsyncClient", url: str, parameters: Dict[str, str], odata_id_: str, title, fields):
+    def __init__(self, client: "AsyncClient", url: str, parameters: dict[str, str], odata_id_: str, title, fields):
         self._client = client
         self.odata_id_ = odata_id_
         self.title = title
-        self.fields: Dict[str, str] = fields
+        self.fields: dict[str, str] = fields
         self.parameters = parameters
         self.url = url
         self.req = self._client.api.createRequest((self.url, "post"))
@@ -24,7 +23,7 @@ class Action:
     def data(self):
         return self.req.data.get_type()
 
-    async def __call__(self, *args, parameters: Optional[Dict[str, str]] = None, data=None, **kwargs):
+    async def __call__(self, *args, parameters: dict[str, str] | None = None, data=None, **kwargs):
         if parameters:
             parameters.update(self.parameters)
         else:
@@ -37,6 +36,7 @@ class Action:
 @Detour("#Chassis..Chassis/Actions")
 @Detour("#ComputerSystem..ComputerSystem/Actions")
 @Detour("#EventService..EventService/Actions")
+@Detour("#LogService..LogService/Actions")
 @Detour("#Manager..Manager/Actions")
 @Detour("#TelemetryService..TelemetryService/Actions")
 @Detour("#UpdateService..UpdateService/Actions")
