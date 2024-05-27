@@ -6,7 +6,7 @@ authors = [
     {name = "Markus Kötter", email = "commonism@users.noreply.github.com"},
 ]
 dependencies = [
-    "aiopenapi3 @ git+https://github.com/commonism/aiopenapi3.git@b06667b10dad5fd8fcc0997ca3d68826b0611416",
+    "aiopenapi3 @ git+https://github.com/commonism/aiopenapi3.git@master",
     "routes>=2.5.1",
     "jq>=1.6.0",
 ]
