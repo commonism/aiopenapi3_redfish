@@ -11,12 +11,24 @@ jobs:
     env:
       OS: ${{ matrix.os }}
       PYTHON: ${{ matrix.python }}
+
+    services:
+      mockup:
+        image: dmtf/redfish-mockup-server:latest
+        volumes:
+          - ${{ github.workspace }}/tmp/DSP8010/public-rackmount1:/tmp/public-rackmount1
+        options: --name mockup
+        ports:
+          - 8000:8000
     steps:
     - uses: actions/checkout@master
+      with:
+        path: code
     - uses: pdm-project/setup-pdm@v4
       with:
         python-version: ${{ matrix.python }}
     - name: install deps
+      working-directory: ./code
       run: |
         pdm use -f $PYTHON
         pdm install -d
@@ -41,7 +53,29 @@ jobs:
         wget --directory-prefix=$HOME/www-data https://www.dmtf.org/sites/default/files/standards/documents/DSP8010_2024.1.zip
         wget --directory-prefix=$HOME/www-data https://www.snia.org/sites/default/files/technical-work/swordfish/release/v1.2.6/zip/Swordfish_v1.2.6.zip
         unzip $HOME/www-data/Swordfish_v1.2.6.zip '*_Schema.zip' -d $HOME/www-data/
+
+    - name: service::mock - unzip DSP8010 public-rackmount1
+      run: |
+        ls -al ${{ github.workspace }}/tmp/DSP8010/public-rackmount1/
+        mkdir -p ${{ github.workspace }}/tmp/DSP8010/public-rackmount1
+        ls -al ${{ github.workspace }}/tmp/DSP8010/public-rackmount1
+        sudo touch ${{ github.workspace }}/tmp/DSP8010/public-rackmount1/test
+        sudo unzip $HOME/www-data/DSP2043_2024.1.zip "public-rackmount1/*" -d ${{ github.workspace }}/tmp/DSP8010/
+
+    - name: service::mock - copy service files
+      uses: docker://docker
+      with:
+        args: docker container exec mockup cp -a /tmp/public-rackmount1 /usr/src/app/
+#        args: docker cp ${{ runner.temp }}/DSP8010/public-rackmount1 mockup:/usr/src/app/
+
+    - name: service::mock - restart to feed the volume
+      # https://github.com/orgs/community/discussions/42127#discussioncomment-7591609
+      uses: docker://docker
+      with:
+        args: docker restart mockup
+
     - name: Setup description documents
+      working-directory: ./code
       run: |
         mkdir -p src/aiopenapi3_redfish/description_documents/DSP8010/2024.1/
         unzip -j ~/www-data/DSP8010_2024.1.zip 'openapi/*.yaml' -d src/aiopenapi3_redfish/description_documents/DSP8010/2024.1/
@@ -49,15 +83,21 @@ jobs:
         unzip -j ~/www-data/Swordfish_v1.2.6_Schema.zip  'yaml/*.yaml' -d src/aiopenapi3_redfish/description_documents/Swordfish/v1.2.6/
         pdm run pytest --cov=tests/test_description_documents --cov-report=xml:./coverage/reports/coverage-description_documents-tests.xml tests/description_documents_test.py
     - name: Generate coverage report (DSP 2043)
+      working-directory: ./code
       run: |
         pdm run pytest --cov=src/aiopenapi3_redfish/ --cov-report=xml:./coverage/reports/coverage-dsp2043.xml       tests/dsp2043_test.py::test_single_{pass,fail}
         pdm run pytest --cov=tests/   --cov-report=xml:./coverage/reports/coverage-dsp2043-tests.xml tests/dsp2043_test.py::test_single_{pass,fail}
+    - name: Generate coverage report (mock)
+      working-directory: ./code
+      run: |
+        pdm run pytest --cov=src/aiopenapi3_redfish/ --cov-report=xml:./coverage/reports/coverage-mock.xml       tests/mock_test.py::test_iter
+        pdm run pytest --cov=tests/   --cov-report=xml:./coverage/reports/coverage-mock-tests.xml tests/mock_test.py::test_iter
     - name: Upload coverage to Codecov (core)
       uses: codecov/codecov-action@v4
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
         directory: ./coverage/reports/
-        files: coverage-dsp2043.xml
+        files: coverage-dsp2043.xml,coverage-mock.xml
         env_vars: OS,PYTHON
         fail_ci_if_error: false
         flags: core
@@ -68,7 +108,7 @@ jobs:
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
         directory: ./coverage/reports/
-        files: coverage-description_documents-tests.xml,coverage-dsp2043-tests.xml
+        files: coverage-description_documents-tests.xml,coverage-dsp2043-tests.xml,coverage-mock-tests.xml
         env_vars: OS,PYTHON
         fail_ci_if_error: false
         flags: tests
