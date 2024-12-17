@@ -173,6 +173,10 @@ def Parsed(*patterns, method=None):
     return _Routes("_parsed", *patterns, method=method)
 
 
+def Sending(*patterns, method=None):
+    return _Routes("_sending", *patterns, method=method)
+
+
 def _Routes(_route, *patterns, method=None):
     def x(
         f: typing.Callable[
@@ -217,7 +221,8 @@ class Message(aiopenapi3.plugin.Message):
         super().__init__()
         self._received: dict[str, Message.Methods] = collections.defaultdict(lambda: Message.Methods())
         self._parsed: dict[str, Message.Methods] = collections.defaultdict(lambda: Message.Methods())
-        for op, mapping in {"_received": self._received, "_parsed": self._parsed}.items():
+        self._sending: dict[str, Message.Methods] = collections.defaultdict(lambda: Message.Methods())
+        for op, mapping in {"_received": self._received, "_parsed": self._parsed, "_sending": self._sending}.items():
             for name, i in filter(
                 lambda kv: kv[1] and inspect.ismethod(kv[1]) and hasattr(kv[1], op),
                 map(lambda x: (x, getattr(self, x)), dir(self)),
@@ -263,3 +268,6 @@ class Message(aiopenapi3.plugin.Message):
                     }
                 )
         return self._dr(self._received, ctx)
+
+    def sending(self, ctx: "Message.Context") -> "Message.Context":
+        return self._dr(self._sending, ctx)
