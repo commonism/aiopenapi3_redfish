@@ -23,6 +23,7 @@ if typing.TYPE_CHECKING:
         AsyncUpdateService,
         AsyncTelemetryService,
         AsyncSessionService,
+        AsyncStorage,
         AsyncTaskService,
         AsyncTelemetryService,
         AsyncUpdateService,
@@ -176,6 +177,10 @@ class AsyncClient:
     @property
     def SessionService(self) -> "AsyncSessionService":
         return self._serviceroot.SessionService
+
+    @property
+    def Storage(self) -> "AsyncStorage":
+        return self._serviceroot.Storage
 
     @property
     def Systems(self) -> "AsyncCollection[AsyncSystem]":

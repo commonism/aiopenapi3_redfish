@@ -5,6 +5,11 @@ from .service import AsyncAccountService, AsyncChassis, AsyncFabric, AsyncSystem
 from .manager import AsyncManager
 
 
+@Detour("#ComputerSystem..ComputerSystem/Boot/BootOptions")
+class BootOptionCollection(AsyncCollection[AsyncResourceRoot]):
+    pass
+
+
 @Detour("#ServiceRoot..ServiceRoot/Chassis")
 class ChassisCollection(AsyncCollection[AsyncChassis]):
     pass

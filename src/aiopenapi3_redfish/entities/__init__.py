@@ -17,6 +17,7 @@ from .service import (
 )
 
 from .collections import (
+    BootOptionCollection,
     ChassisCollection,
     ConnectionCollection,
     DriveCollection,
@@ -62,6 +63,7 @@ class Defaults(Lookup):
         AsyncTaskService,
         AsyncTelemetryService,
         AsyncUpdateService,
+        BootOptionCollection,
         ChassisCollection,
         ConnectionCollection,
         #        DriveCollection,
