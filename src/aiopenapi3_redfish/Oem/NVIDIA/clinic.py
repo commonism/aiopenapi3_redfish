@@ -42,3 +42,10 @@ class Message(aiopenapi3_redfish.clinic.Message):
             else:
                 raise ValueError("unexpected format")
             ctx.received = json.dumps(t)
+
+    @aiopenapi3_redfish.clinic.Parsed("/redfish/v1/Chassis/{ChassisId}", method=["get"])
+    def dr_Chassis(self, ctx: "aiopenapi3.plugin.Message.Context"):
+        if ctx.parsed.get("ChassisType", "") == "Rack Mount Chassis":
+            ctx.parsed["ChassisType"] = "Rack"
+        if (v := "ProductName") in ctx.parsed:
+            del ctx.parsed[v]
