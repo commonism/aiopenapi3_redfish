@@ -24,6 +24,8 @@ class _DocumentBase(aiopenapi3.plugin.Document):
             # mangle the Task refs in the loaded openapi.yaml
             for k, v in ctx.document["paths"].items():
                 for o, op in v.items():
+                    if o not in aiopenapi3.base.HTTP_METHODS:
+                        continue
                     for code, content in op["responses"].items():
                         if "content" not in content:
                             continue
@@ -39,6 +41,10 @@ class _DocumentBase(aiopenapi3.plugin.Document):
             """
             for k, v in ctx.document["paths"].items():
                 for o, op in v.items():
+                    if o not in aiopenapi3.base.HTTP_METHODS:
+                        continue
+                    if "security" not in op:
+                        continue
                     if op["security"] == [{"basicAuth": [], "X-Auth": []}]:
                         op["security"] = [{"basicAuth": []}, {"X-Auth": []}]
 
@@ -47,7 +53,10 @@ class _DocumentBase(aiopenapi3.plugin.Document):
             DellAttributes Alias
             /redfish/v1/Managers/{ManagerId}/Attributes -> /redfish/v1/Managers/{ManagerId}/Oem/Dell/DellAttributes/{DellAttributesId}
             """
-            if "/redfish/v1/Managers/{ManagerId}/Attributes" not in data["paths"]:
+            if (
+                "/redfish/v1/Managers/{ManagerId}/Oem/Dell/DellAttributes/{DellAttributesId}" in data["paths"]
+                and "/redfish/v1/Managers/{ManagerId}/Attributes" not in data["paths"]
+            ):
                 n = data["paths"]["/redfish/v1/Managers/{ManagerId}/Attributes"] = copy.deepcopy(
                     data["paths"]["/redfish/v1/Managers/{ManagerId}/Oem/Dell/DellAttributes/{DellAttributesId}"]
                 )
@@ -417,6 +426,283 @@ class Document_v7_00_60_00(_DocumentBase):
         return ctx
 
 
+class Document_v7_10_30_00(_DocumentBase):
+    VERSIONS = dict(
+        [
+            ("AccountService", ("1_13_0",)),
+            ("Capacity", ("1_2_1",)),
+            ("Certificate", ("1_7_0",)),
+            ("Circuit", ("1_7_0",)),
+            ("ComputerSystem", ("1_20_1",)),
+            ("Control", ("1_3_0",)),
+            ("DataProtectionLoSCapabilities", ("1_2_0",)),
+            ("DataStorageLoSCapabilities", ("1_2_2",)),
+            ("DellAssembly", ("1_0_0",)),
+            ("DellBIOSService", ("1_0_0",)),
+            ("DellChassis", ("1_0_0",)),
+            ("DellComputerSystem", ("1_2_0",)),
+            ("DellController", ("1_4_1",)),
+            ("DellControllerBattery", ("1_0_0",)),
+            ("DellDrive", ("1_1_0",)),
+            ("DellEnclosure", ("1_1_0",)),
+            ("DellEnclosureEMM", ("1_1_0",)),
+            ("DellEnclosureFanSensor", ("1_1_0",)),
+            ("DellEnclosurePowerSupply", ("1_0_0",)),
+            ("DellEnclosureTemperatureSensor", ("1_1_0",)),
+            ("DellFan", ("1_0_0",)),
+            ("DellFC", ("1_4_0",)),
+            ("DellFCCapabilities", ("1_0_0",)),
+            ("DellFCPortMetrics", ("1_1_1",)),
+            ("DellFCStatistics", ("1_0_0",)),
+            ("DellFRUAssembly", ("1_1_0",)),
+            ("DellGPUSensor", ("1_1_0",)),
+            ("DelliDRACCard", ("1_1_0",)),
+            ("DelliDRACCardService", ("1_7_1",)),
+            ("DellInfiniBand", ("1_3_0",)),
+            ("DellInfiniBandCapabilities", ("1_0_0",)),
+            ("DellInfiniBandPortMetrics", ("1_0_0",)),
+            ("DellJobService", ("1_2_0",)),
+            ("DellLCService", ("1_7_1",)),
+            ("DellLicensableDevice", ("1_0_0",)),
+            ("DellLicense", ("1_2_0",)),
+            ("DellLicenseManagementService", ("1_1_0",)),
+            ("DellLogEntry", ("1_1_0",)),
+            ("DellManager", ("1_4_0",)),
+            ("DellManagerAccount", ("1_0_0",)),
+            ("DellManagerNetworkProtocol", ("1_0_0",)),
+            ("DellMemory", ("1_1_0",)),
+            ("DellMetricReport", ("1_0_0",)),
+            ("DellMetricReportDefinition", ("1_1_0",)),
+            ("DellMetricService", ("1_2_0",)),
+            ("DellNetworkTransceiver", ("1_1_0",)),
+            ("DellNetworkTransceiverPortMetrics", ("1_0_0",)),
+            ("DellNIC", ("1_7_0",)),
+            ("DellNICCapabilities", ("1_2_0",)),
+            ("DellNICPortMetrics", ("1_1_1",)),
+            ("DellNumericSensor", ("1_1_1",)),
+            ("DellOem", ("1_3_0",)),
+            ("DellOemChassis", ("1_2_0",)),
+            ("DellOemEnclosureChassis", ("1_0_0",)),
+            ("DellOemStorageController", ("1_0_0",)),
+            ("DellOSDeploymentService", ("1_1_0",)),
+            ("DellPCIeFunction", ("1_6_0",)),
+            ("DellPCIeSSD", ("1_8_0",)),
+            ("DellPCIeSSDExtender", ("1_0_0",)),
+            ("DellPersistentStorageService", ("1_1_0",)),
+            ("DellPhysicalDisk", ("1_7_0",)),
+            ("DellPowerSupply", ("1_1_1",)),
+            ("DellPowerSupplyView", ("1_3_0",)),
+            ("DellPresenceAndStatusSensor", ("1_1_0",)),
+            ("DellProcessor", ("1_2_0",)),
+            ("DellPSNumericSensor", ("1_1_0",)),
+            ("DellRaidService", ("1_5_1",)),
+            ("DellRollupStatus", ("1_0_0",)),
+            ("DellSecureBoot", ("1_1_0",)),
+            ("DellSensor", ("1_0_0",)),
+            ("DellServiceRoot", ("1_0_0",)),
+            ("DellSlot", ("1_0_0",)),
+            ("DellSoftwareInstallationService", ("1_2_0",)),
+            ("DellSoftwareInventory", ("1_2_0",)),
+            ("DellSwitchConnection", ("1_1_0",)),
+            ("DellSystem", ("1_4_0",)),
+            ("DellSystemQuickSync", ("1_0_0",)),
+            ("DellTelemetryService", ("1_2_0",)),
+            ("DellVideo", ("1_3_0",)),
+            ("DellVirtualDisk", ("1_2_0",)),
+            ("Event", ("1_8_0",)),
+            ("EventDestination", ("1_13_1",)),
+            ("IPAddresses", ("1_1_3",)),
+            ("ManagerAccount", ("1_10_0",)),
+            ("Message", ("1_1_2",)),
+            ("PCIeDevice", ("1_11_1",)),
+            ("Redundancy", ("1_4_1",)),
+            ("Resource", ("1_16_0",)),
+            ("Schedule", ("1_2_4",)),
+            ("Sensor", ("1_7_0",)),
+            ("Signature", ("1_0_2",)),
+            ("SoftwareInventory", ("1_9_0",)),
+            ("Storage", ("1_15_0", "1_10_1")),
+            ("StorageReplicaInfo", ("1_3_0", "1_4_0")),
+            ("VLanNetworkInterface", ("1_3_0",)),
+            ("Volume", ("1_9_0",)),
+        ]
+    )
+
+    def fixDellOemEnclosureChassis(self, ctx: aiopenapi3.plugin.Document.Context) -> aiopenapi3.plugin.Document.Context:
+        """
+        DellOemEnclosureChassis lacks DellChassis
+        """
+        if ctx.url.path.startswith("/redfish/v1/Schemas/DellOemEnclosureChassis.v"):
+            root, _, version = Path(ctx.url.path).stem.partition(".")
+            if (e := f"{root}_{version}_{root}") in ctx.document["components"]["schemas"]:
+                v = ctx.document["components"]["schemas"][e]["properties"]
+                v["DellChassis"] = {"$ref": "/redfish/v1/DellChassis.yaml#/components/schemas/DellChassis_DellChassis"}
+
+    def parsed(self, ctx: aiopenapi3.plugin.Document.Context) -> aiopenapi3.plugin.Document.Context:
+        super().parsed(ctx)
+
+        self.removeInvalidVersions(ctx, self.VERSIONS)
+
+        self.fixDellManager(ctx)
+        self.fixResourceHealth(ctx)
+        self.fixTaskService(ctx)
+        self.fixDellOemEnclosureChassis(ctx)
+        return ctx
+
+
+class Document_v7_10_75_00(_DocumentBase):
+    VERSIONS = dict(
+        [
+            ("AccountService", ("1_15_1",)),
+            ("ActionInfo", ("1_4_2",)),
+            ("Capacity", ("1_2_1",)),
+            ("Certificate", ("1_8_2",)),
+            ("Circuit", ("1_8_0",)),
+            ("ComputerSystem", ("1_22_1",)),
+            ("Control", ("1_5_1",)),
+            ("DataProtectionLoSCapabilities", ("1_2_0",)),
+            ("DataStorageLoSCapabilities", ("1_2_2",)),
+            ("DellAssembly", ("1_1_0",)),
+            ("DellBIOSService", ("1_0_0",)),
+            ("DellChassis", ("1_0_0",)),
+            ("DellComputerSystem", ("1_2_0",)),
+            ("DellController", ("1_5_0",)),
+            ("DellControllerBattery", ("1_0_0",)),
+            ("DellDrive", ("1_1_0",)),
+            ("DellEnclosure", ("1_1_0",)),
+            ("DellEnclosureEMM", ("1_1_0",)),
+            ("DellEnclosureFanSensor", ("1_1_0",)),
+            ("DellEnclosurePowerSupply", ("1_0_0",)),
+            ("DellEnclosureTemperatureSensor", ("1_1_0",)),
+            ("DellFC", ("1_4_0",)),
+            ("DellFCCapabilities", ("1_0_0",)),
+            ("DellFCPortMetrics", ("1_1_1",)),
+            ("DellFCStatistics", ("1_0_0",)),
+            ("DellFRUAssembly", ("1_1_0",)),
+            ("DellFan", ("1_0_0",)),
+            ("DellGPUSensor", ("1_2_0",)),
+            ("DellInfiniBand", ("1_3_0",)),
+            ("DellInfiniBandCapabilities", ("1_0_0",)),
+            ("DellInfiniBandPortMetrics", ("1_0_0",)),
+            ("DellJobService", ("1_2_0",)),
+            ("DellLCService", ("1_8_1",)),
+            ("DellLicensableDevice", ("1_0_0",)),
+            ("DellLicense", ("1_2_0",)),
+            ("DellLicenseManagementService", ("1_1_0",)),
+            ("DellLogEntry", ("1_1_0",)),
+            ("DellManager", ("1_4_0",)),
+            ("DellManagerAccount", ("1_0_0",)),
+            ("DellManagerNetworkProtocol", ("1_0_0",)),
+            ("DellMemory", ("1_1_0",)),
+            ("DellMetricReport", ("1_0_0",)),
+            ("DellMetricReportDefinition", ("1_1_0",)),
+            ("DellMetricService", ("1_2_0",)),
+            ("DellNIC", ("1_7_0",)),
+            ("DellNICCapabilities", ("1_2_0",)),
+            ("DellNICPortMetrics", ("1_1_1",)),
+            ("DellNetworkTransceiver", ("1_1_0",)),
+            ("DellNetworkTransceiverPortMetrics", ("1_0_0",)),
+            ("DellNumericSensor", ("1_1_1",)),
+            ("DellOSDeploymentService", ("1_1_0",)),
+            ("DellOem", ("1_3_0",)),
+            ("DellOemEnclosureChassis", ("1_0_0",)),
+            ("DellOemStorageController", ("1_0_0",)),
+            ("DellPCIeFunction", ("1_6_0",)),
+            ("DellPCIeSSD", ("1_9_0",)),
+            ("DellPCIeSSDExtender", ("1_0_0",)),
+            ("DellPSNumericSensor", ("1_1_0",)),
+            ("DellPersistentStorageService", ("1_1_0",)),
+            ("DellPhysicalDisk", ("1_7_0",)),
+            ("DellPowerSupply", ("1_1_1",)),
+            ("DellPowerSupplyView", ("1_3_0",)),
+            ("DellPresenceAndStatusSensor", ("1_1_0",)),
+            ("DellProcessor", ("1_2_0",)),
+            ("DellRaidService", ("1_5_1",)),
+            ("DellRollupStatus", ("1_0_0",)),
+            ("DellSecureBoot", ("1_1_0",)),
+            ("DellSensor", ("1_0_0",)),
+            ("DellServiceRoot", ("1_0_0",)),
+            ("DellSlot", ("1_0_0",)),
+            ("DellSoftwareInstallationService", ("1_3_1",)),
+            ("DellSoftwareInventory", ("1_2_0",)),
+            ("DellSwitchConnection", ("1_1_0",)),
+            ("DellSystem", ("1_4_0",)),
+            ("DellSystemQuickSync", ("1_0_0",)),
+            ("DellTelemetryService", ("1_2_0",)),
+            ("DellVideo", ("1_3_0",)),
+            ("DellVirtualDisk", ("1_2_0",)),
+            ("DelliDRACCard", ("1_1_0",)),
+            ("DelliDRACCardService", ("1_9_0",)),
+            ("Event", ("1_10_1",)),
+            ("EventDestination", ("1_14_1",)),
+            ("IPAddresses", ("1_1_5",)),
+            ("ManagerAccount", ("1_12_1",)),
+            ("Message", ("1_2_1",)),
+            ("PCIeDevice", ("1_14_0",)),
+            ("Redundancy", ("1_4_2",)),
+            ("ResolutionStep", ("1_0_1",)),
+            ("Resource", ("1_19_0",)),
+            ("Schedule", ("1_2_5",)),
+            ("Sensor", ("1_9_0",)),
+            ("Signature", ("1_0_3",)),
+            ("SoftwareInventory", ("1_10_2",)),
+            ("Storage", ("1_16_0",)),
+            ("StorageReplicaInfo", ("1_3_0", "1_4_0")),
+            ("VLanNetworkInterface", ("1_3_1",)),
+            ("Volume", ("1_10_0",)),
+        ]
+    )
+
+    def fixDellOemEnclosureChassis(self, ctx: aiopenapi3.plugin.Document.Context) -> aiopenapi3.plugin.Document.Context:
+        """
+        DellOemEnclosureChassis lacks DellChassis
+        """
+        if ctx.url.path.startswith("/redfish/v1/Schemas/DellOemEnclosureChassis.v"):
+            root, _, version = Path(ctx.url.path).stem.partition(".")
+            if (e := f"{root}_{version}_{root}") in ctx.document["components"]["schemas"]:
+                v = ctx.document["components"]["schemas"][e]["properties"]
+                v["DellChassis"] = {"$ref": "/redfish/v1/DellChassis.yaml#/components/schemas/DellChassis_DellChassis"}
+
+    def fixDellChassis(self, ctx: aiopenapi3.plugin.Document.Context) -> aiopenapi3.plugin.Document.Context:
+        if ctx.url.path.endswith("Chassis.v1_25_1.yaml"):
+            ctx.document["components"]["schemas"]["Chassis_v1_25_1_Chassis_Oem"]["properties"]["Dell"] = {
+                "$ref": "/redfish/v1/DellOemChassis.v1_2_0.yaml#/components/schemas/DellOemChassis_v1_2_0_DellOemChassis"
+            }
+
+        if ctx.url.path.endswith("DellOemChassis.v1_2_0.yaml"):
+            ctx.document["components"]["schemas"]["DellOemChassis_v1_2_0_DellOemChassis"]["properties"][
+                "DellChassis"
+            ] = {"$ref": "/redfish/v1/DellChassis.v1_0_0.yaml#/components/schemas/DellChassis_v1_0_0_DellChassis"}
+
+    def fixDellDrive(self, ctx: aiopenapi3.plugin.Document.Context) -> aiopenapi3.plugin.Document.Context:
+        if ctx.url.path.endswith("DellDrive.v1_1_0.yaml"):
+            for i in ["DellPhysicalDisk", "DellPCIeSSD"]:
+                ctx.document["components"]["schemas"]["DellDrive_v1_1_0_DellDrive"]["properties"][i] = {
+                    "$ref": f"/redfish/v1/{i}.yaml#/components/schemas/{i}_{i}"
+                }
+
+    def fixDellVolume(self, ctx: aiopenapi3.plugin.Document.Context) -> aiopenapi3.plugin.Document.Context:
+        if ctx.url.path.endswith("DellVolume.v1_0_0.yaml"):
+            for i in ["DellVirtualDisk"]:
+                ctx.document["components"]["schemas"]["DellVolume_v1_0_0_DellVolume"]["properties"][i] = {
+                    "$ref": f"/redfish/v1/{i}.yaml#/components/schemas/{i}_{i}"
+                }
+
+    def parsed(self, ctx: aiopenapi3.plugin.Document.Context) -> aiopenapi3.plugin.Document.Context:
+        super().parsed(ctx)
+
+        self.removeInvalidVersions(ctx, self.VERSIONS)
+
+        self.fixDellManager(ctx)
+        self.fixResourceHealth(ctx)
+        self.fixTaskService(ctx)
+        self.fixDellOemEnclosureChassis(ctx)
+        self.fixDellChassis(ctx)
+        self.fixDellDrive(ctx)
+        self.fixDellVolume(ctx)
+        return ctx
+
+
 from pathlib import Path
 from aiopenapi3.json import JSONReference
 
@@ -431,7 +717,7 @@ class Document_vX(_DocumentBase):
         self.dir = directory
 
     def removeInvalidVersions(self, ctx: aiopenapi3.plugin.Document.Context) -> None:
-        r: dict[str, list[str]] = collections.defaultdict(lambda: list())
+        r: dict[str, list[str]] = collections.defaultdict(list)
         for name, value in ctx.document["components"]["schemas"].items():
             if "anyOf" not in value:
                 continue
@@ -473,6 +759,7 @@ class Document_vX(_DocumentBase):
 
 
 class Message(aiopenapi3_redfish.clinic.Message):
+    @aiopenapi3_redfish.clinic.Parsed("/redfish/v1/Systems/{ComputerSystemId}", method=["patch"])
     @aiopenapi3_redfish.clinic.Parsed(
         "/redfish/v1/Managers/{ManagerId}/Oem/Dell/DellAttributes/{DellAttributesId}", method=["patch"]
     )
@@ -523,9 +810,38 @@ class Message(aiopenapi3_redfish.clinic.Message):
             del ctx.parsed["LastResetTime"]
         return ctx
 
+    @aiopenapi3_redfish.clinic.Parsed("/redfish/v1/Managers/{ManagerId}")
+    def dr_Manager(self, ctx: "aiopenapi3.plugin.Message.Context") -> "aiopenapi3.plugin.Message.Context":
+        """iDRAC v4.32.10.00"""
+        if ctx.request.vars.parameters["ManagerId"] == "iDRAC.Embedded.1":
+            if item := ctx.parsed.get("Oem", {}).get("Dell", {}).get("DelliDRACCard", {}):
+                for k, v in {"Id": "0", "Name": "yes"}.items():
+                    if k not in item:
+                        item[k] = v
+
+            t = "#DellOem.v1_3_0.DellOemLinks"
+            if (w := ctx.parsed.get("Links", {}).get("Oem").get("Dell", {})).get("@odata.type", "") != t:
+                w["@odata.type"] = t
+
+        return ctx
+
+    @aiopenapi3_redfish.clinic.Parsed("/redfish/v1/Systems/{ComputerSystemId}/Storage/{StorageId}/Drives/{DriveId}")
+    @aiopenapi3_redfish.clinic.Parsed("/redfish/v1/Systems/{ComputerSystemId}/Storage/{StorageId}/Volumes/{VolumeId}")
+    @aiopenapi3_redfish.clinic.Parsed("/redfish/v1/Systems/{ComputerSystemId}/Storage/{StorageId}")
+    def dr_AllowableValues(self, ctx: "aiopenapi3.plugin.Message.Context") -> "aiopenapi3.plugin.Message.Context":
+        # remove @Redfish.____@Redfish.AllowableValues
+        # @ is not a valid character for properties
+        actions = list((k, v) for k, v in ctx.parsed.get("Actions", {}).items() if k[0] == "#")
+        actions.extend(list((k, v) for k, v in ctx.parsed.get("Actions", {}).get("Oem", {}).items() if k[0] == "#"))
+
+        for k, v in actions:
+            for kk in list(v.keys()):
+                if kk.startswith("@Redfish.") and kk.count("@") > 1:
+                    del v[kk]
+        return ctx
+
 
 from aiopenapi3_redfish.entities.service import AsyncTaskService
-from typing import Union
 from aiopenapi3_redfish.oem import Detour
 
 
@@ -535,7 +851,7 @@ from aiopenapi3_redfish.oem import Detour
 class DellTaskServiceMonitor(AsyncTaskService):
     async def wait_for(
         self, TaskId: str, pollInterval: int = 7, maxWait: int = 700
-    ) -> Union[AsyncTaskService.AsyncTask, bytes]:
+    ) -> AsyncTaskService.AsyncTask | bytes:
         """
         Dell TaskService combines the functionality with the TaskMonitor and may return result data instead of Tasks
         we modified the description document in fixTaskService() to accept response content types other than

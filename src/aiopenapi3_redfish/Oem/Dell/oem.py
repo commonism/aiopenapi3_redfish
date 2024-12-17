@@ -22,7 +22,15 @@ from aiopenapi3_redfish.entities.manager import AsyncManager
 @Detour("#ServiceRoot..ServiceRoot")
 class iDRACServiceRoot(AsyncServiceRoot):
     async def asyncInit(self):
-        await super().asyncInit()
+        if (items := self._client._mapping.classFromResourceType(self.odata_type_, None)) is None:
+            return
+
+        for field in items.keys():
+            try:
+                attr, value = await self._getItem(field)
+            except Exception as e:
+                continue
+            setattr(self, attr, value)
 
         async for m in self.Managers.list():
             if m.Id == "iDRAC.Embedded.1":
@@ -31,6 +39,12 @@ class iDRACServiceRoot(AsyncServiceRoot):
             raise KeyError("iDRAC.Embedded")
         self.Manager = m
         return self
+
+
+@Detour("#Manager..Manager/Links/Oem")
+class ManagerLinksOem(ResourceItem):
+    def __init__(self, root, path, value):
+        super().__init__(root, path, value)
 
 
 @Detour("#Manager..Manager/Actions/Oem")
@@ -90,10 +104,6 @@ class DellAttributes(AsyncSettings):
 
 @Detour("#DellOem..DellOemLinks/DellAttributes")
 class DellAttributesCollection(AsyncCollection[DellAttributes]):
-    def __init__(self, root, path, value):
-        super().__init__(root._client, None)
-        self._data = value
-
     async def index(self, key):
         for i in self._data:
             if Path(i.odata_id_).name == key:
@@ -103,13 +113,8 @@ class DellAttributesCollection(AsyncCollection[DellAttributes]):
 
 @Detour("#DellOem..DellOemLinks/Jobs")
 @Detour("#DellJobCollection.DellJobCollection")
-class DellJobCollection(AsyncCollection[AsyncResourceRoot]):
-    def __init__(self, root, path, value):
-        super().__init__(root._client, value)
-
-
 @Detour("/redfish/v1/Managers/{ManagerId}/Oem/Dell/Jobs")
-class DellJobCollection2(AsyncCollection[AsyncResourceRoot]):
+class DellJobCollection(AsyncCollection[AsyncResourceRoot]):
     pass
 
 
@@ -283,7 +288,7 @@ class DellSoftwareInstallationService(AsyncResourceRoot):
             while True:
                 try:
                     finished = await asyncio.wait_for(step(), timeout=10 * 60)
-                except (asyncio.TimeoutError, TimeoutError, asyncio.CancelledError) as e0:
+                except (TimeoutError, asyncio.CancelledError) as e0:
                     self._client.log.info(f"step Timeout {type(e0)}")
                     self._client.log.exception(e0)
                     await system.togglePower()
@@ -297,7 +302,7 @@ class DellSoftwareInstallationService(AsyncResourceRoot):
 
         try:
             await asyncio.wait_for(install(), timeout=3600 * 2)
-        except (asyncio.TimeoutError, TimeoutError):
+        except TimeoutError:
             self._client.log.info("install Timeout")
             return False
         except Exception as e:
@@ -323,14 +328,13 @@ class DellOem(Oem):
         iDRACServiceRoot,
         DellAttributesCollection,
         DellJobCollection,
-        DellJobCollection2,
         DellAttributes,
         EID_674_Manager_ImportSystemConfiguration,
         EID_674_Manager_ExportSystemConfiguration,
         DellUpdateService,
         DellTelemetryService,
         DellManager,
-        #        ManagerLinksOem,
+        ManagerLinksOem,
         DellOemLinks,
         ManagerActionsOem,
         DellSoftwareInstallationService,
