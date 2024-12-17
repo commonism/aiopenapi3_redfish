@@ -40,6 +40,10 @@ class ResourceItem:
             path = self._path / name
             odata_type = self._v.model_extra.get("@odata.type", root._v.odata_type_)
         if (cls := self._root._client._mapping.classFromResourceType(odata_type, str(path))) is not None:
+            if issubclass(cls, AsyncCollection):
+                r = cls(self._root._client, v)
+                return r
+
             return cls(root, path, v)
         elif isinstance(v, BaseModel):
             return ResourceItem(root, path, v)
@@ -100,37 +104,37 @@ class AsyncResourceRoot(ResourceItem):
             return
 
         for field in items.keys():
-            if "/" in (attr := field[1:]) or field == "/":
-                continue
-            if (cls := self._client._mapping.classFromResourceType(self.odata_type_, field)) is None:
-                continue
-
-            #            from .entities.actions import Actions
-            #            if issubclass(cls, Actions):
-            #                continue
-
-            if issubclass(cls, (AsyncCollection, AsyncResourceRoot)):
-                if attr == "":
-                    at = getattr(self._v, "odata_id_")
-                else:
-                    if (tmp := getattr(self._v, attr)) is not None:
-                        at = tmp.odata_id_
-                    else:
-                        continue
-                try:
-                    if issubclass(cls, AsyncCollection):
-                        value = await cls().asyncNew(self._client, at)
-                    elif issubclass(cls, AsyncResourceRoot) or cls == AsyncResourceRoot:
-                        value = await cls.asyncNew(self._client, at)
-                except KeyError:
-                    value = dict(undefined=True)
-                except RedfishException as e:
-                    value = dict(undefined=True)
-            elif issubclass(cls, ResourceItem) or cls == ResourceItem:
-                value = cls(self, yarl.URL(field), getattr(self._v, attr))
-            else:
-                continue
+            attr, value = await self._getItem(field)
             setattr(self, attr, value)
+
+    async def _getItem(self, field):
+        if "/" in (attr := field[1:]) or field == "/":
+            return attr, None
+        if (cls := self._client._mapping.classFromResourceType(self.odata_type_, field)) is None:
+            return attr, None
+
+        if issubclass(cls, (AsyncCollection, AsyncResourceRoot)):
+            if attr == "":
+                at = getattr(self._v, "odata_id_")
+            else:
+                if (tmp := getattr(self._v, attr)) is not None:
+                    at = tmp.odata_id_
+                else:
+                    return attr, None
+            try:
+                if issubclass(cls, AsyncCollection):
+                    value = await cls().asyncNew(self._client, at)
+                elif issubclass(cls, AsyncResourceRoot) or cls == AsyncResourceRoot:
+                    value = await cls.asyncNew(self._client, at)
+            except KeyError:
+                value = dict(undefined=True)
+            except RedfishException as e:
+                value = dict(undefined=True, data=e.value.model_dump())
+        elif issubclass(cls, ResourceItem) or cls == ResourceItem:
+            value = cls(self, yarl.URL(field), getattr(self._v, attr))
+        else:
+            return attr, None
+        return attr, value
 
     def __repr__(self):
         return f"{self.__class__.__name__} {self._v!r}"
