@@ -1,5 +1,4 @@
 import typing
-from typing import List, Union
 from pathlib import Path
 import logging
 
@@ -45,16 +44,16 @@ class Config:
         username: str,
         password: str,
         cache: Path | None = None,
-        plugins: List["Plugin"] | None = None,
-        locations: List["Loader"] | None = None,
-        session_factory: Union[httpx.AsyncClient | httpx.Client] = httpx.AsyncClient,
+        plugins: list["Plugin"] | None = None,
+        locations: list["Loader"] | None = None,
+        session_factory: httpx.AsyncClient | httpx.Client = httpx.AsyncClient,
     ):
         self.target: str = target
         self.auth = (username, password)
         self.cache: Path | None = cache
-        self.plugins: List["Plugin"] = plugins or []
-        self.locations: List["Loader"] = locations or []
-        self.session_factory: Union[httpx.AsyncClient | httpx.Client] = session_factory
+        self.plugins: list["Plugin"] = plugins or []
+        self.locations: list["Loader"] = locations or []
+        self.session_factory: httpx.AsyncClient | httpx.Client = session_factory
 
 
 class AsynClientLoggingAdapter(logging.LoggerAdapter):
@@ -64,7 +63,7 @@ class AsynClientLoggingAdapter(logging.LoggerAdapter):
     """
 
     def process(self, msg, kwargs):
-        return "[%s] %s" % (self.extra["target"], msg), kwargs
+        return "[{}] {}".format(self.extra["target"], msg), kwargs
 
 
 class AsyncClient:
@@ -114,7 +113,7 @@ class AsyncClient:
         api.authenticate(basicAuth=config.auth)
         return api
 
-    def routeOf(self, url: Union[str, yarl.URL]):
+    def routeOf(self, url: str | yarl.URL):
         if isinstance(url, yarl.URL):
             url = str(url.with_fragment(None))
         r = self.routes.routematch(url)
