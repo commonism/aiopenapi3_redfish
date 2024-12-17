@@ -1,6 +1,7 @@
 import yarl
 
 from aiopenapi3_redfish.base import AsyncResourceRoot, AsyncCollection
+from aiopenapi3_redfish.entities.actions import Action
 
 
 class AsyncManager(AsyncResourceRoot):
@@ -11,7 +12,11 @@ class AsyncManager(AsyncResourceRoot):
           - GracefulRestart
           target: /redfish/v1/Managers/iDRAC.Embedded.1/Actions/Manager.Reset
         """
-        raise NotImplementedError()
+        action: Action = self.Actions["#Manager.Reset"]
+        data = action.data.model_validate(dict(ResetType="GracefulRestart"))
+        return await action(data=data)
+
+        await self.Actions["#Manager.Reset"]()
 
     async def ResetToDefaults(self):
         """
