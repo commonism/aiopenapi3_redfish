@@ -1,5 +1,4 @@
 import typing
-from typing import Optional
 from .base import AsyncCollection, AsyncResourceRoot
 
 from aiopenapi3_redfish.entities.service import (
@@ -30,7 +29,7 @@ class AsyncServiceRoot(AsyncResourceRoot):
     EventService: AsyncEventService
     Fabrics: AsyncCollection[AsyncFabric]
     Managers: AsyncCollection[AsyncManager]
-    Manager: Optional[AsyncManager]
+    Manager: AsyncManager | None
     Tasks: AsyncTaskService
     TelemetryService: AsyncTelemetryService
     UpdateService: AsyncUpdateService
@@ -43,20 +42,18 @@ class AsyncServiceRoot(AsyncResourceRoot):
         await obj.asyncInit()
         return obj
 
-    async def asyncInit(self):
-        await super().asyncInit()
-        assert self.AccountService
-        #        assert self.CertificateService
-        assert self.Chassis
-        assert self.EventService
-        #        assert self.Fabrics
-        assert self.Managers
-        self.Manager = None
-        assert self.Tasks
-        #        assert self.TelemetryService
-        assert self.UpdateService
-        assert self.SessionService
-        assert self.Systems
+    async def asyncInit(self, *paths):
+        if (items := self._client._mapping.classFromResourceType(self.odata_type_, None)) is None:
+            return
+
+        for field in items.keys():
+            if paths and field not in paths:
+                continue
+
+            attr, value = await self._getItem(field)
+            if value is None:
+                continue
+            setattr(self, attr, value)
         return self
 
     @property
