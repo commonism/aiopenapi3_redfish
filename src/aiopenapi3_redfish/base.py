@@ -2,7 +2,7 @@ import typing
 
 import yarl
 
-from pydantic import BaseModel
+from pydantic import BaseModel, RootModel
 
 import aiopenapi3.model
 
@@ -14,39 +14,57 @@ if typing.TYPE_CHECKING:
 
 
 class ResourceItem:
-    def __init__(self, root: "AsyncResourceRoot", path: yarl.URL, value: "BaseModel"):
+    def __init__(self, root: "AsyncResourceRoot", path: yarl.URL, value: BaseModel | RootModel):
         self._root: "AsyncResourceRoot" = root
         self._path: yarl.URL = path
-        self._v: BaseModel = value
+        self._w: BaseModel | RootModel = value
+        self._v: BaseModel | RootModel = value
+        if isinstance(self._w, RootModel):
+            self._v = self._w.root
 
     def __getattr__(self, name):
         try:
-            v = getattr(self._v, name)
+            if isinstance(self._v, dict):
+                vv = v = self._v[name]
+            else:
+                vv = v = getattr(self._v, name)
         except AttributeError:
             raise AttributeError(name)
         except RecursionError:
             print("X")
 
+        if isinstance(v, RootModel):
+            v = v.root
+
         if not isinstance(v, (BaseModel, dict, list)):
-            return v
+            return vv
 
         path = yarl.URL("/")
         root = self._root
         if isinstance(v, BaseModel) and "odata_type_" in v.model_fields:
             odata_type = v.odata_type_
+        elif isinstance(v, BaseModel) and v.model_extra and "@odata.type" in v.model_extra:
+            odata_type = v.model_extra["@odata.type"]
         elif isinstance(v, dict) and "@odata.type" in v:
             odata_type = v["@odata.type"]
         else:  # isinstance(v, list):
             path = self._path / name
-            odata_type = self._v.model_extra.get("@odata.type", root._v.odata_type_)
+            odata_type = (
+                self._v.model_extra.get("@odata.type", root._v.odata_type_)
+                if isinstance(self._v, BaseModel)
+                else root._v.odata_type_
+            )
+
         if (cls := self._root._client._mapping.classFromResourceType(odata_type, str(path))) is not None:
             if issubclass(cls, AsyncCollection):
-                r = cls(self._root._client, v)
+                r = cls(self._root._client, vv)
                 return r
 
-            return cls(root, path, v)
+            return cls(root, path, vv)
         elif isinstance(v, BaseModel):
-            return ResourceItem(root, path, v)
+            return ResourceItem(root, path, vv)
+        elif isinstance(v, dict):
+            return ResourceItem(root, path, vv)
         return v
 
     async def refresh(self):
@@ -105,11 +123,13 @@ class AsyncResourceRoot(ResourceItem):
 
         for field in items.keys():
             attr, value = await self._getItem(field)
-            setattr(self, attr, value)
+            if attr is not None:
+                setattr(self, attr, value)
 
     async def _getItem(self, field):
         if "/" in (attr := field[1:]) or field == "/":
-            return attr, None
+            return None, None
+
         if (cls := self._client._mapping.classFromResourceType(self.odata_type_, field)) is None:
             return attr, None
 

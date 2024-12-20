@@ -30,7 +30,8 @@ class iDRACServiceRoot(AsyncServiceRoot):
                 attr, value = await self._getItem(field)
             except Exception as e:
                 continue
-            setattr(self, attr, value)
+            if attr:
+                setattr(self, attr, value)
 
         async for m in self.Managers.list():
             if m.Id == "iDRAC.Embedded.1":
@@ -61,7 +62,7 @@ class DellOemLinks(ResourceItem):
         cls = root._client.api._documents[yarl.URL("/redfish/v1/Schemas/DellOem.v1_3_0.yaml")].components.schemas[
             "DellOem_v1_3_0_DellOemLinks"
         ]
-        data = cls.get_type().model_validate(value)
+        data = cls.get_type().model_validate(value.model_dump())
         super().__init__(root, yarl.URL(path), data)
 
 
