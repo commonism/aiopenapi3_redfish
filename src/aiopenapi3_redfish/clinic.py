@@ -3,13 +3,20 @@ import json
 import inspect
 import typing
 from collections.abc import Iterable
+import re
+from pathlib import Path
+import logging
+
 import yaml
+import pydantic
 
 from aiopenapi3.base import SchemaBase, HTTP_METHODS
 import aiopenapi3.v31
 import aiopenapi3.plugin
 
 import aiopenapi3_redfish
+
+log = logging.getLogger(__name__)
 
 
 class RedfishDocument(aiopenapi3.plugin.Document):
@@ -163,6 +170,69 @@ class PayloadAnnotations(aiopenapi3.plugin.Init):
     def resolved(self, ctx: aiopenapi3.plugin.Init.Context) -> aiopenapi3.plugin.Init.Context:
         self._annotate(ctx.resolved)
         return ctx
+
+    class TypeExpectation(aiopenapi3.plugin.Message, aiopenapi3.plugin.Init):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.schemas: collections.ChainMap[str, pydantic.BaseModel] | None = None
+
+        def initialized(self, ctx: "Init.Context") -> "Init.Context":
+            self.schemas = collections.ChainMap(*(i.components.schemas for i in self.api._documents.values()))
+            return ctx
+
+        def parsed(self, ctx: "aiopenapi3.plugin.Message.Context") -> "aiopenapi3.plugin.Message.Context":
+            try:
+                ctx.expected_type.model(ctx.parsed)
+            except pydantic.ValidationError:
+                pass
+            else:
+                return
+
+            if location := ctx.parsed.get("@odata.type"):
+                assert location[0] == "#"
+                name, _, sub = location[1:].rpartition(".")
+            elif location := ctx.headers.get("link"):
+                name, _, rel = location.partition(";")
+                name = name.strip("<>")
+                name = Path(name).stem
+            elif tuple(ctx.parsed.keys()) == ("error",):
+                name = "RedfishError"
+            else:
+                #                print(ctx.parsed)
+                return ctx
+
+            try:
+                if name == "RedfishError":
+                    type_ = name
+                elif "." in name:
+                    """
+                    Chassis.v1_6_0
+                    """
+                    name, _, version = name.partition(".")
+                    p = re.compile(r"^{name}_v\d+_\d+_\d+_{name}$".format(name=name))
+                    type_ = list(filter(lambda x: p.match(x), self.schemas.keys()))[0]
+                else:
+                    """
+                    EventDestinationCollection
+                    """
+                    p = re.compile("^{name}_{name}$".format(name=name))
+                    type_ = list(filter(lambda x: p.match(x), self.schemas.keys()))[0]
+            except Exception as e:
+                print(f"{e} {name} not found")
+                return
+
+            if (linked_type := self.schemas.get(type_)) != ctx.expected_type:
+                try:
+                    linked_type.model(ctx.parsed)
+                    err = None
+                except Exception as e:
+                    err = e
+                finally:
+                    log.info(
+                        f"type correction -> {ctx.expected_type.get_type().__name__} -> {linked_type.get_type().__name__} ({err})"
+                    )
+                    ctx.expected_type = linked_type
+            return ctx
 
 
 def Received(*patterns, method=None):
