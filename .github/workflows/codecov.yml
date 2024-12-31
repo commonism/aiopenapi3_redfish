@@ -43,7 +43,7 @@ jobs:
         cache-name: cache-www-data
       with:
         path: ~/www-data/
-        key: ${{ env.cache-name }}-20240527
+        key: ${{ env.cache-name }}-20241231
 
     - if: ${{ steps.cache-www-data.outputs.cache-hit != 'true' }}
       name: Get description documents
