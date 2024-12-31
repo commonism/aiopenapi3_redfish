@@ -1,9 +1,12 @@
+import dataclasses
 import zipfile
 from pathlib import Path
+import textwrap
 
 import yarl
 import httpx
 import json
+from pydantic import ValidationError
 
 import pytest
 import pytest_asyncio
@@ -65,8 +68,8 @@ def config(description_documents, target):
             #            MockMessage(),
         ],
         locations=[
-            RedirectLoader(description_documents / "DSP8010" / "2024.1"),
-            RedirectLoader(description_documents / "Swordfish" / "v1.2.6"),
+            RedirectLoader(description_documents / "DSP8010" / "2024.3"),
+            RedirectLoader(description_documents / "Swordfish" / "v1.2.7"),
         ],
         cache=Path("/tmp/test_new.pickle"),
     )
@@ -95,9 +98,26 @@ class MockClient(AsyncClient):
         data = json.loads(p.read_text())
         r = aiopenapi3.request.RequestBase.Response(headers={}, data=data, result=None)
         try:
-            return req.operation.responses["200"].content["application/json"].schema_.model(r.data)
-        except Exception as e:
-            raise e
+            expectation = req.operation.responses["200"].content["application/json"].schema_
+            return expectation.model(r.data)
+        except ValidationError as e:
+            request = httpx.Request("GET", str(url), params=parameters)
+
+            @dataclasses.dataclass
+            class MockResponse:
+                request: httpx.Request
+                data: "JSON"
+
+                def json(self):
+                    return self.data
+
+            raise aiopenapi3.errors.ResponseSchemaError(
+                operation=req.operation,
+                expectation=expectation,
+                schema=None,
+                response=MockResponse(request=request, data=data),
+                exception=e,
+            )
 
 
 class MockDocument(aiopenapi3.plugin.Document):
@@ -112,16 +132,22 @@ class MockDocument(aiopenapi3.plugin.Document):
 
 
 def dsp2043zip():
-    url = yarl.URL("https://www.dmtf.org/sites/default/files/standards/documents/DSP2043_2024.1.zip")
+    url = yarl.URL("https://www.dmtf.org/sites/default/files/standards/documents/DSP2043_2024.3.zip")
 
     for i in ["~/www-data", "/tmp/"]:
         if (p := Path(i).expanduser() / Path(url.path).name).exists():
-            return zipfile.Path(p)
+            f = zipfile.Path(p)
+            if (v := (f / p.stem)).exists() and v.is_dir():
+                return v
+            return f
 
     with httpx.Client() as f:
         r = f.get(str(url))
         (p := (Path("/tmp/") / url.name)).write_bytes(r.content)
-        return zipfile.Path(p)
+        f = zipfile.Path(p)
+        if (v := (f / p.stem)).exists() and v.is_dir():
+            return v
+        return f
 
 
 def pytest_generate_tests(metafunc):
@@ -135,7 +161,8 @@ def pytest_generate_tests(metafunc):
         for info in zipfile.root.infolist():
             if info.is_dir():
                 continue
-            rfile = (file := Path(info.filename)).relative_to(dsp2043 := file.parts[0])
+            file = Path(info.filename)
+            rfile = file.relative_to(dsp2043 := file.parts[0])
             if not dsp2043.startswith("public-"):
                 continue
             if rfile.parts[0] in {"$metadata", "explorer_config.json"}:
@@ -191,7 +218,11 @@ async def test_single_fail(client):
     mock = "public-liquid-cooled-server"
     file = "ComponentIntegrity/SS-SPDM-0/index.json"
     client.dsp2043 = dsp2043zip() / mock
-    await _test_single_file(client, Path(file))
+    try:
+        await _test_single_file(client, Path(file))
+    except Exception as e:
+        client.log.exception(e)
+        raise
 
 
 @pytest.mark.asyncio
@@ -203,9 +234,17 @@ async def test_single_pass(client):
 
 
 @pytest.mark.asyncio
-async def test_iter(client):
+async def test_iter(caplog, client, dsp2043):
+    import logging
+
+    caplog.set_level(logging.WARNING, logger="asyncio")
+
+    print(f"## {dsp2043.name}")
     pages: set[yarl.URL] = set()
     todo = set()
+
+    indent = "    "
+    wrapper = textwrap.TextWrapper(initial_indent=indent, width=250, subsequent_indent=" " * len(indent))
 
     from typing import Any
     import pydantic
@@ -239,9 +278,6 @@ async def test_iter(client):
             pass
         return links
 
-    # import collections
-    # Page = collections.namedtuple("Page", field_names=["routepath", "parameters", "data", "response"])
-
     class RoutingError(Exception):
         pass
 
@@ -258,16 +294,31 @@ async def test_iter(client):
             r = await get(t)
             return r
         except aiopenapi3.errors.ResponseSchemaError as rse:
-            print(f"{rse.__class__.__name__} {t} {rse}")
+            print(f"### {rse.__class__.__name__} {t}")
+            print("```")
+            print(textwrap.indent(str(rse.exception), "\t"))
+            print("```")
+            print("")
             return rse.response.json()
         except aiopenapi3.errors.ResponseError as rer:
-            print(f"{rer.__class__.__name__} {t} {rer}")
+            print(f"### {rer.__class__.__name__} {t}")
+            print("```")
+            print(textwrap.indent(str(rer), "\t"))
+            print("```")
+            print("")
         except RoutingError as ror:
-            print(f"{ror.__class__.__name__} {t} {ror}")
-        except KeyError as ke:
-            print(f"{ke.__class__.__name__} {t} {ke}")
-        except pydantic.ValidationError as ve:
-            print(f"{ve.__class__.__name__} {t} {ve}")
+            print(f"### {ror.__class__.__name__} {t}")
+            print("```")
+            print(textwrap.indent(str(ror), "\t"))
+            print("```")
+            print("")
+
+    client.dsp2043 = dsp2043
+
+    try:
+        await client.asyncInit()
+    except Exception:
+        return
 
     todo |= _find_links(client._serviceroot._v) - pages
 
