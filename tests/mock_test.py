@@ -1,6 +1,7 @@
 import string
 from pathlib import Path
 import random
+
 from pathlib import Path
 
 
@@ -240,7 +241,8 @@ async def test_iter(client, capsys):
             r = await get(t)
             return r.data
         except aiopenapi3.errors.ResponseSchemaError as rse:
-            print(f"{rse.__class__.__name__} {t} {rse}")
+            print(f"{rse.__class__.__name__} {t}")
+            print()
             return rse.response.json()
         except aiopenapi3.errors.ResponseError as rer:
             print(f"{rer.__class__.__name__} {t} {rer}")

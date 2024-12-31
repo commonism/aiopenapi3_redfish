@@ -49,10 +49,10 @@ jobs:
       name: Get description documents
       run: |
         mkdir ~/www-data
-        wget --directory-prefix=$HOME/www-data https://www.dmtf.org/sites/default/files/standards/documents/DSP2043_2024.1.zip
-        wget --directory-prefix=$HOME/www-data https://www.dmtf.org/sites/default/files/standards/documents/DSP8010_2024.1.zip
-        wget --directory-prefix=$HOME/www-data https://www.snia.org/sites/default/files/technical-work/swordfish/release/v1.2.6/zip/Swordfish_v1.2.6.zip
-        unzip $HOME/www-data/Swordfish_v1.2.6.zip '*_Schema.zip' -d $HOME/www-data/
+        wget --directory-prefix=$HOME/www-data https://www.dmtf.org/sites/default/files/standards/documents/DSP2043_2024.3.zip
+        wget --directory-prefix=$HOME/www-data https://www.dmtf.org/sites/default/files/standards/documents/DSP8010_2024.3.zip
+        wget --directory-prefix=$HOME/www-data https://www.snia.org/sites/default/files/technical-work/swordfish/release/v1.2.7/zip/Swordfish_v1.2.7.zip
+        unzip $HOME/www-data/Swordfish_v1.2.7.zip '*_Schema.zip' -d $HOME/www-data/
 
     - name: service::mock - unzip DSP8010 public-rackmount1
       run: |
@@ -60,7 +60,7 @@ jobs:
         mkdir -p ${{ github.workspace }}/tmp/DSP8010/public-rackmount1
         ls -al ${{ github.workspace }}/tmp/DSP8010/public-rackmount1
         sudo touch ${{ github.workspace }}/tmp/DSP8010/public-rackmount1/test
-        sudo unzip $HOME/www-data/DSP2043_2024.1.zip "public-rackmount1/*" -d ${{ github.workspace }}/tmp/DSP8010/
+        sudo unzip $HOME/www-data/DSP2043_2024.3.zip "public-rackmount1/*" -d ${{ github.workspace }}/tmp/DSP8010/
 
     - name: service::mock - copy service files
       uses: docker://docker
@@ -78,9 +78,9 @@ jobs:
       working-directory: ./code
       run: |
         mkdir -p src/aiopenapi3_redfish/description_documents/DSP8010/2024.1/
-        unzip -j ~/www-data/DSP8010_2024.1.zip 'openapi/*.yaml' -d src/aiopenapi3_redfish/description_documents/DSP8010/2024.1/
-        mkdir -p src/aiopenapi3_redfish/description_documents/Swordfish/v1.2.6/
-        unzip -j ~/www-data/Swordfish_v1.2.6_Schema.zip  'yaml/*.yaml' -d src/aiopenapi3_redfish/description_documents/Swordfish/v1.2.6/
+        unzip -j ~/www-data/DSP8010_2024.3.zip 'openapi/*.yaml' -d src/aiopenapi3_redfish/description_documents/DSP8010/2024.3/
+        mkdir -p src/aiopenapi3_redfish/description_documents/Swordfish/v1.2.7/
+        unzip -j ~/www-data/Swordfish_v1.2.7_Schema.zip  'yaml/*.yaml' -d src/aiopenapi3_redfish/description_documents/Swordfish/v1.2.7/
         pdm run pytest --cov=tests/test_description_documents --cov-report=xml:../coverage/reports/coverage-description_documents-tests.xml tests/description_documents_test.py
     - name: Generate coverage report (DSP 2043)
       working-directory: ./code
@@ -88,6 +88,11 @@ jobs:
         pdm run pytest --cov=src/aiopenapi3_redfish/ --cov-report=xml:../coverage/reports/coverage-dsp2043.xml       tests/dsp2043_test.py::test_single_{pass,fail}
         pdm run pytest --cov=tests/   --cov-report=xml:../coverage/reports/coverage-dsp2043-tests.xml tests/dsp2043_test.py::test_single_{pass,fail}
     - name: Generate coverage report (mock)
+      working-directory: ./code
+      run: |
+        pdm run pytest --cov=src/aiopenapi3_redfish/ --cov-report=xml:../coverage/reports/coverage-mock.xml       tests/mock_test.py::test_iter
+        pdm run pytest --cov=tests/   --cov-report=xml:../coverage/reports/coverage-mock-tests.xml tests/mock_test.py::test_iter
+    - name: Generate coverage report (taskset)
       working-directory: ./code
       run: |
         pdm run pytest --cov=src/aiopenapi3_redfish/ --cov-report=xml:../coverage/reports/coverage-mock.xml       tests/mock_test.py::test_iter
