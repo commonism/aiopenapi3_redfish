@@ -81,22 +81,22 @@ jobs:
         unzip -j ~/www-data/DSP8010_2024.3.zip '*/openapi/*.yaml' -d src/aiopenapi3_redfish/description_documents/DSP8010/2024.3/
         mkdir -p src/aiopenapi3_redfish/description_documents/Swordfish/v1.2.7/
         unzip -j ~/www-data/Swordfish_v1.2.7_Schema.zip  'yaml/*.yaml' -d src/aiopenapi3_redfish/description_documents/Swordfish/v1.2.7/
-#        pdm run pytest --cov=tests/test_description_documents --cov-report=xml:../coverage/reports/coverage-description_documents-tests.xml tests/description_documents_test.py
+#        pdm run pytest --cov=teststest_description_documents --cov-report=xml:../coverage/reports/coverage-description_documents-tests.xml tests/description_documents_test.py
     - name: Generate coverage report (DSP 2043)
       working-directory: ./code
       run: |
-        pdm run pytest --cov=src/aiopenapi3_redfish/ --cov-report=xml:../coverage/reports/coverage-dsp2043.xml       tests/dsp2043_test.py::test_single_{pass,fail}
-        pdm run pytest --cov=tests/   --cov-report=xml:../coverage/reports/coverage-dsp2043-tests.xml tests/dsp2043_test.py::test_single_{pass,fail}
+        pdm run pytest --cov=src --cov-report=xml:../coverage/reports/coverage-dsp2043.xml       tests/dsp2043_test.py::test_single_{pass,fail}
+        pdm run pytest --cov=tests   --cov-report=xml:../coverage/reports/coverage-dsp2043-tests.xml tests/dsp2043_test.py::test_single_{pass,fail}
     - name: Generate coverage report (mock)
       working-directory: ./code
       run: |
-        pdm run pytest --cov=src/aiopenapi3_redfish/ --cov-report=xml:../coverage/reports/coverage-mock.xml       tests/mock_test.py::test_iter
-        pdm run pytest --cov=tests/   --cov-report=xml:../coverage/reports/coverage-mock-tests.xml tests/mock_test.py::test_iter
+        pdm run pytest --cov=src --cov-report=xml:../coverage/reports/coverage-mock.xml       tests/mock_test.py::test_iter
+        pdm run pytest --cov=tests   --cov-report=xml:../coverage/reports/coverage-mock-tests.xml tests/mock_test.py::test_iter
     - name: Generate coverage report (taskset)
       working-directory: ./code
       run: |
-        pdm run pytest --cov=src/aiopenapi3_redfish/ --cov-report=xml:../coverage/reports/coverage-taskset.xml       tests/taskset_test.py::test_Task
-        pdm run pytest --cov=tests/   --cov-report=xml:../coverage/reports/coverage-taskset-tests.xml tests/taskset_test.py::test_Task
+        pdm run pytest --cov=src --cov-report=xml:../coverage/reports/coverage-taskset.xml       tests/taskset_test.py::test_Task
+        pdm run pytest --cov=tests   --cov-report=xml:../coverage/reports/coverage-taskset-tests.xml tests/taskset_test.py::test_Task
     - name: Upload coverage to Codecov (core)
       uses: codecov/codecov-action@v4
       with:
