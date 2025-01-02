@@ -109,7 +109,7 @@ jobs:
         name: codecov-aiopenapi3_redfish
         verbose: true
     - name: Upload coverage to Codecov (tests)
-      uses: codecov/codecov-action@v4
+      uses: codecov/codecov-action@v5
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
         directory: ./coverage/reports/
