@@ -5,6 +5,8 @@ import httpx
 import pytest
 import pytest_asyncio
 import yarl
+import html5lib
+
 from aiopenapi3.loader import RedirectLoader
 
 import aiopenapi3_redfish
@@ -71,8 +73,6 @@ log = logging.getLogger("aiopenapi3_redfish.tests")
 
 
 def get_mockups():
-    import html5lib
-
     data = httpx.get("https://swordfishmockups.com/")
     kw = {"namespaceHTMLElements": False}
     root = html5lib.parse(data.content, treebuilder="lxml", **kw)
