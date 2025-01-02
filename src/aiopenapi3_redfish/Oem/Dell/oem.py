@@ -42,12 +42,6 @@ class iDRACServiceRoot(AsyncServiceRoot):
         return self
 
 
-@Detour("#Manager..Manager/Links/Oem")
-class ManagerLinksOem(ResourceItem):
-    def __init__(self, root, path, value):
-        super().__init__(root, path, value)
-
-
 @Detour("#Manager..Manager/Actions/Oem")
 class ManagerActionsOem(aiopenapi3_redfish.entities.actions.Oem):
     def ExportSystemConfiguration(self) -> aiopenapi3_redfish.entities.actions.Action:
@@ -335,7 +329,6 @@ class DellOem(Oem):
         DellUpdateService,
         DellTelemetryService,
         DellManager,
-        ManagerLinksOem,
         DellOemLinks,
         ManagerActionsOem,
         DellSoftwareInstallationService,
