@@ -45,7 +45,7 @@ asyncio_mode = "strict"
 asyncio_default_fixture_loop_scope = "session"
 
 log_cli = "yes"
-log_cli_level = "DEBUG"
+log_cli_level = "INFO"
 log_cli_format = "%(asctime)s [%(levelname)8s] %(name)-12.12s %(message)s (%(filename)s:%(lineno)s)"
 log_cli_date_format = "%Y-%m-%d %H:%M:%S"
 
@@ -59,7 +59,11 @@ exclude = [
 ]
 
 [tool.coverage.run]
-relative_files = true
+relative_files = false
 source = [
     "."
+]
+
+source_pkgs = [
+    "aiopenapi3_redfish",
 ]
