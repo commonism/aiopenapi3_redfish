@@ -95,14 +95,14 @@ jobs:
     - name: Generate coverage report (taskset)
       working-directory: ./code
       run: |
-        pdm run pytest --cov=src/aiopenapi3_redfish/ --cov-report=xml:../coverage/reports/coverage-mock.xml       tests/mock_test.py::test_iter
-        pdm run pytest --cov=tests/   --cov-report=xml:../coverage/reports/coverage-mock-tests.xml tests/mock_test.py::test_iter
+        pdm run pytest --cov=src/aiopenapi3_redfish/ --cov-report=xml:../coverage/reports/coverage-taskset.xml       tests/taskset_test.py::test_Task
+        pdm run pytest --cov=tests/   --cov-report=xml:../coverage/reports/coverage-taskset-tests.xml tests/taskset_test.py::test_Task
     - name: Upload coverage to Codecov (core)
       uses: codecov/codecov-action@v4
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
         directory: ./coverage/reports/
-        files: coverage-dsp2043.xml,coverage-mock.xml
+        files: coverage-dsp2043.xml,coverage-mock.xml,coverage-taskset.xml
         env_vars: OS,PYTHON
         fail_ci_if_error: false
         flags: core
@@ -113,7 +113,7 @@ jobs:
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
         directory: ./coverage/reports/
-        files: coverage-description_documents-tests.xml,coverage-dsp2043-tests.xml,coverage-mock-tests.xml
+        files: coverage-description_documents-tests.xml,coverage-dsp2043-tests.xml,coverage-mock-tests.xml,coverage-taskset-tests.xml
         env_vars: OS,PYTHON
         fail_ci_if_error: false
         flags: tests
