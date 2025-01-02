@@ -202,7 +202,10 @@ class DellSoftwareInstallationService(AsyncResourceRoot):
 
         system = await client.Systems.index("System.Embedded.1")
 
-        await system.togglePower("On")
+        try:
+            await system.togglePower("On")
+        except ValueError:
+            pass
 
         action = self.Actions["#DellSoftwareInstallationService.InstallFromRepository"]
         data = action.data.model_validate(
@@ -282,7 +285,7 @@ class DellSoftwareInstallationService(AsyncResourceRoot):
         async def install() -> None:
             while True:
                 try:
-                    finished = await asyncio.wait_for(step(), timeout=10 * 60)
+                    finished = await asyncio.wait_for(step(), timeout=20 * 60)
                 except (TimeoutError, asyncio.CancelledError) as e0:
                     self._client.log.info(f"step Timeout {type(e0)}")
                     self._client.log.exception(e0)
