@@ -113,7 +113,7 @@ jobs:
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
         directory: ./coverage/reports/
-        files: coverage-description_documents-tests.xml,coverage-dsp2043-tests.xml,coverage-mock-tests.xml,coverage-taskset-tests.xml
+        files: coverage-dsp2043-tests.xml,coverage-mock-tests.xml,coverage-taskset-tests.xml
         env_vars: OS,PYTHON
         fail_ci_if_error: false
         flags: tests
