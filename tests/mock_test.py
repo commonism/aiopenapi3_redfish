@@ -88,9 +88,9 @@ async def client_(description_documents, target, auth, log):
             MockMessage(),
         ],
         locations=[
-            RedirectLoader(v := description_documents / "DMTF-DSP8010" / "2023.3"),
+            RedirectLoader(v := description_documents / "DSP8010" / "2024.3"),
             RedirectLoader(v / "OpenAPI"),
-            RedirectLoader(description_documents / "swordfish-v1.2.6"),
+            RedirectLoader(description_documents / "Swordfish" / "v1.2.7"),
         ],
         cache=Path("/tmp/test_new.pickle"),
     )
