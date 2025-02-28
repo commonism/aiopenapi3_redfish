@@ -26,7 +26,8 @@ from aiopenapi3_redfish.clinic import (
 )
 from aiopenapi3_redfish.Oem.Dell.clinic import (
     Document_vX as OemDocumentGenerator,
-    Document_v7_00_60_00 as OemDocument,
+    #    Document_v7_00_60_00 as OemDocument,
+    Document_v7_20_10_05 as OemDocument,
     Message as OemMessage,
     DellTaskServiceMonitor,
 )
@@ -167,6 +168,16 @@ async def client_(description_documents, target, auth, log):
                 ("/redfish/v1/Managers/{ManagerId}/Actions/Oem/EID_674_Manager.ExportSystemConfiguration", ["post"]),
                 (re.compile(r"/redfish/v1/Managers/{ManagerId}/Actions/Oem/DellManager\..*$"), ["post"]),
                 ("/redfish/v1/Managers/iDRAC.Embedded.1/Actions/Oem/DellManager.SetCustomDefaults", ["post"]),
+                ("/redfish/v1/Managers/{ManagerId}/EthernetInterfaces", ["get"]),
+                ("/redfish/v1/Managers/{ManagerId}/EthernetInterfaces/{EthernetInterfaceId}", ["get"]),
+                #
+                # DellSwitchConnections
+                #
+                ("/redfish/v1/Systems/{ComputerSystemId}/NetworkPorts/Oem/Dell/DellSwitchConnections", ["get"]),
+                (
+                    "/redfish/v1/Systems/{ComputerSystemId}/NetworkPorts/Oem/Dell/DellSwitchConnections/{SwitchConnectionId}",
+                    ["get"],
+                ),
                 #
                 # DellAttributes
                 #
@@ -185,6 +196,7 @@ async def client_(description_documents, target, auth, log):
                 ("/redfish/v1/Systems/{ComputerSystemId}/Bios", ["get", "patch"]),
                 ("/redfish/v1/Systems/{ComputerSystemId}/Bios/Settings", ["get", "patch"]),
                 (re.compile(r"^/redfish/v1/Systems/{ComputerSystemId}/Actions/ComputerSystem.\S+$"), ["post"]),
+                ("/redfish/v1/Systems/{ComputerSystemId}/EthernetInterfaces/{EthernetInterfaceId}", ["get"]),
                 ("/redfish/v1/Systems/{ComputerSystemId}/Oem/Dell/DellSoftwareInstallationService", ["get"]),
                 (
                     re.compile(
@@ -216,7 +228,7 @@ async def client_(description_documents, target, auth, log):
             ),
         ],
         locations=[
-            RedirectLoader((v := description_documents / "dell" / "iDRAC_7.00.60.00_A00")),
+            RedirectLoader(v := description_documents / "dell" / "iDRAC_7.00.60.00_A00"),
             RedirectLoader(v / "OpenAPI"),
             RedirectLoader(description_documents / "swordfish-v1.2.4a"),
         ],
