@@ -113,6 +113,13 @@ class DellJobCollection(AsyncCollection[AsyncResourceRoot]):
     pass
 
 
+@Detour("#DellOem..DellOemLinks/DellSwitchConnectionCollection")
+@Detour("#DellSwitchConnectionCollection.DellSwitchConnectionCollection")
+@Detour("/redfish/v1/Managers/{ManagerId}/Links/Oem/Dell/DellSwitchConnectionCollection")
+class DellSwitchConnectionCollection(AsyncCollection[AsyncResourceRoot]):
+    pass
+
+
 @Detour(
     "/redfish/v1/Managers/{ManagerId}/Actions/Oem/EID_674_Manager.ExportSystemConfiguration",
 )
@@ -326,6 +333,7 @@ class DellOem(Oem):
         iDRACServiceRoot,
         DellAttributesCollection,
         DellJobCollection,
+        DellSwitchConnectionCollection,
         DellAttributes,
         EID_674_Manager_ImportSystemConfiguration,
         EID_674_Manager_ExportSystemConfiguration,
