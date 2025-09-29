@@ -1,6 +1,8 @@
 import typing
 
+
 import aiopenapi3.model
+import pydantic
 
 from aiopenapi3_redfish.base import ResourceItem
 from aiopenapi3_redfish.oem import Detour
@@ -46,7 +48,7 @@ class Actions(ResourceItem):
     def __getitem__(self, key: str) -> Action:
         name = aiopenapi3.model.Model.nameof(key)
         v = getattr(self._v, name)
-        return self._createAction(v.target, v.title, v.model_extra)
+        return self._createAction(v.target, getattr(v, "title", ""), v.model_extra)
 
     def _createAction(self, target, title, fields) -> Action:
         parameters, url = self._root._client.routeOf(target)
@@ -64,5 +66,19 @@ class Oem(Actions):
     _detour = None
 
     def __getitem__(self, key: str) -> Action:
-        v = self._v.model_extra[key]
-        return self._createAction(v["target"], v.get("title", None), v)
+        if isinstance(self._v, dict):
+            v = self._v[key]
+        elif self._v.model_extra:
+            v = self._v.model_extra[key]
+        else:
+            v = getattr(self._v, aiopenapi3.model.Model.nameof(key))
+
+        if hasattr(v, "target"):
+            target = v.target
+            title = v.title
+        else:
+            if isinstance(v, pydantic.RootModel):
+                v = v.root.model_extra
+            target, title = v["target"], v.get("title")
+
+        return self._createAction(target, title, v)

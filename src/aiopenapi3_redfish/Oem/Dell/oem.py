@@ -2,6 +2,9 @@ import asyncio
 import collections
 import enum
 from pathlib import Path
+import re
+from typing import Literal
+import io
 
 import jq
 import yarl
@@ -56,8 +59,12 @@ class DellOemLinks(ResourceItem):
         cls = root._client.api._documents[yarl.URL("/redfish/v1/Schemas/DellOem.v1_3_0.yaml")].components.schemas[
             "DellOem_v1_3_0_DellOemLinks"
         ]
-        data = cls.get_type().model_validate(value.model_dump())
+        data = cls.get_type().model_validate(value.model_dump(by_alias=True))
         super().__init__(root, yarl.URL(path), data)
+
+    @property
+    def _Jobs(self):
+        return getattr(self, "Jobs", None) or getattr(self, "DellJobService")
 
 
 @Detour(
@@ -124,7 +131,9 @@ class DellSwitchConnectionCollection(AsyncCollection[AsyncResourceRoot]):
     "/redfish/v1/Managers/{ManagerId}/Actions/Oem/EID_674_Manager.ExportSystemConfiguration",
 )
 class EID_674_Manager_ExportSystemConfiguration(aiopenapi3_redfish.entities.actions.Action):
-    async def __call__(self, Format="XML", Use="Clone", FileName="test", Target="ALL"):
+    async def __call__(
+        self, Format="XML", Use="Clone", FileName="test", Target: Literal["ALL", "BIOS", "IDRAC", "NIC", "RAID"] = "ALL"
+    ):
         tShareParameters = self.data.model_fields["ShareParameters"].annotation
         data = self.data(
             ExportFormat=Format,
@@ -142,12 +151,16 @@ class EID_674_Manager_ExportSystemConfiguration(aiopenapi3_redfish.entities.acti
 
 @Detour(
     "/redfish/v1/Managers/{ManagerId}/Actions/Oem/EID_674_Manager.ImportSystemConfiguration",
+    "/redfish/v1/Managers/{ManagerId}/Actions/Oem/OemManager.ImportSystemConfiguration",
 )
 class EID_674_Manager_ImportSystemConfiguration(aiopenapi3_redfish.entities.actions.Action):
-    async def __call__(self, path: Path, Target: str = "IDRAC"):
+    async def __call__(
+        self,
+        path: Path,
+        Target: Literal["ALL", "BIOS", "IDRAC", "NIC", "RAID"] = "IDRAC",
+        ShutdownType: Literal["Graceful", "Forced", "NoReboot"] = "NoReboot",
+    ):
         tShareParameters = self.data.model_fields["ShareParameters"].annotation
-
-        import re
 
         template = path.read_text()
         template = re.sub(r"(   | \n ?)", "", template)
@@ -156,8 +169,8 @@ class EID_674_Manager_ImportSystemConfiguration(aiopenapi3_redfish.entities.acti
             ExecutionMode="Default",
             HostPowerState="On",
             ImportBuffer=template,
-            ShareParameters=tShareParameters(FileName="template.json", Target=[Target]),
-            ShutdownType="NoReboot",
+            ShareParameters=tShareParameters(FileName=f"template{path.suffix}", Target=[Target]),
+            ShutdownType=ShutdownType,
             TimeToWait=300,
         )
         r = await super().__call__(data=data.model_dump(exclude_unset=True))
@@ -238,14 +251,15 @@ class DellSoftwareInstallationService(AsyncResourceRoot):
 
         done = dict()
         todo = dict()
+        Jobs = client.Manager.Links.Oem.Dell.Jobs
 
         if initial is None:
             """pick a random job to start with"""
-            jobs = await client.Manager.Links.Oem.Dell.Jobs.refresh()
+            jobs = await Jobs.refresh()
             i = await jobs.first()
             todo[Path(i.odata_id_).name] = i
         else:
-            todo[initial] = await client.Manager.Links.Oem.Dell.Jobs.index(initial)
+            todo[initial] = await Jobs.index(initial)
 
         async def step() -> bool:
             """
@@ -254,14 +268,14 @@ class DellSoftwareInstallationService(AsyncResourceRoot):
             stalled = True
             while len(todo):
                 try:
-                    jobs = await client.Manager.Links.Oem.Dell.Jobs.refresh()
+                    jobs = await Jobs.refresh()
                     for i in jobs._data:
                         Id = Path(i.odata_id_).name
 
                         if Id in done:
                             continue
 
-                        old = job = await client.Manager.Links.Oem.Dell.Jobs.index(Id)
+                        old = job = await Jobs.index(Id)
                         if Id not in todo:
                             todo[Id] = job
                         else:
@@ -321,7 +335,21 @@ class DellSoftwareInstallationService(AsyncResourceRoot):
 
 
 @Detour("#DellSoftwareInstallationService..DellSoftwareInstallationService/Actions")
-class DellActions(aiopenapi3_redfish.entities.actions.Actions):
+class DellSoftwareInstallationServiceActions(aiopenapi3_redfish.entities.actions.Actions):
+    _detour = None
+
+
+@Detour("#DelliDRACCardService..DelliDRACCardService")
+class DelliDRACCardService(AsyncResourceRoot):
+    async def ImportCertificate(self, CertificateFile: io.TextIOBase, CertificateType: Literal["SCEP_CA_CERT"]):
+        action: aiopenapi3_redfish.entities.actions.Action = self.Actions["#DelliDRACCardService.ImportCertificate"]
+        data = action.data.model_validate(dict(CertificateFile=CertificateFile.read(), CertificateType=CertificateType))
+        r = await action(data=data.model_dump(exclude_unset=True, by_alias=True))
+        return r
+
+
+@Detour("#DelliDRACCardService..DelliDRACCardService/Actions")
+class DelliDRACCardServiceActions(aiopenapi3_redfish.entities.actions.Actions):
     _detour = None
 
 
@@ -343,6 +371,8 @@ class DellOem(Oem):
         DellOemLinks,
         ManagerActionsOem,
         DellSoftwareInstallationService,
-        DellActions,
+        DellSoftwareInstallationServiceActions,
         DellTaskServiceMonitor,
+        DelliDRACCardService,
+        DelliDRACCardServiceActions,
     ]

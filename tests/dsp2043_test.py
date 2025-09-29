@@ -234,6 +234,11 @@ async def test_single_pass(client):
 
 
 @pytest.mark.asyncio
+async def test_fast():
+    pass
+
+
+@pytest.mark.asyncio
 async def test_iter(caplog, client, dsp2043):
     import logging
 

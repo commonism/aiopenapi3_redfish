@@ -146,7 +146,7 @@ class AsyncResourceRoot(ResourceItem):
                     value = await cls().asyncNew(self._client, at)
                 elif issubclass(cls, AsyncResourceRoot) or cls == AsyncResourceRoot:
                     value = await cls.asyncNew(self._client, at)
-            except KeyError:
+            except KeyError as ke:
                 value = dict(undefined=True)
             except RedfishException as e:
                 value = dict(undefined=True, data=e.value.model_dump())

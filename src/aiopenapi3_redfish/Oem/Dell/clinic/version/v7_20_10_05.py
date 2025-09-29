@@ -164,6 +164,14 @@ class Document_v7_20_10_05(_DocumentBase):
                 )
             )
 
+    def fixDellSwitchCollection(self, ctx: aiopenapi3.plugin.Document.Context):
+        if ctx.url.path.endswith("DellSwitchConnectionCollection.yaml"):
+            ctx.document["components"]["schemas"]["DellSwitchConnectionCollection_DellSwitchConnectionCollection"][
+                "properties"
+            ]["Members"]["items"][
+                "$ref"
+            ] = "/redfish/v1/DellSwitchConnection.yaml#/components/schemas/DellSwitchConnection_DellSwitchConnection"
+
     def parsed(self, ctx: aiopenapi3.plugin.Document.Context) -> aiopenapi3.plugin.Document.Context:
         super().parsed(ctx)
         self.removeInvalidVersions(ctx, self.VERSIONS)
@@ -177,3 +185,4 @@ class Document_v7_20_10_05(_DocumentBase):
         self.fixDellChassis(ctx)
         self.fixDellDrive(ctx)
         self.fixDellVolume(ctx)
+        self.fixDellSwitchCollection(ctx)
