@@ -19,9 +19,9 @@ class AsyncTaskSet:
 
     log = logging.getLogger("aiopenapi3_redfish.AsyncTaskSet")
 
-    def __init__(self, task, num_consumers=3):
+    def __init__(self, task: AsyncTask, num_consumers: int = 3):
         assert isinstance(task, AsyncTask), task
-        self.task = task
+        self.task: AsyncTask = task
         self.tasks: asyncio.Queue = asyncio.Queue(maxsize=num_consumers)
 
     async def producer(self):
@@ -38,7 +38,7 @@ class AsyncTaskSet:
         await self.tasks.join()
         self.log.debug("producer: ending")
 
-    async def consumer(self, n):
+    async def consumer(self, n: int):
         self.log.debug(f"consumer {n}: starting")
         item = await self.tasks.get()
         while item is not None:

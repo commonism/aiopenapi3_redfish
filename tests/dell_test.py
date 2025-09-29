@@ -27,11 +27,17 @@ from aiopenapi3_redfish.clinic import (
 from aiopenapi3_redfish.Oem.Dell.clinic import (
     Document_vX as OemDocumentGenerator,
     #    Document_v7_00_60_00 as OemDocument,
+    #    Document_v7_10_30_00 as OemDocument,
+    #    Document_v7_10_75_00 as OemDocument,
     Document_v7_20_10_05 as OemDocument,
+    #    Document_v1_10_17_00 as OemDocument,
+    #    Document_v1_20_60_50 as OemDocument,
     Message as OemMessage,
     DellTaskServiceMonitor,
 )
 from aiopenapi3_redfish.Oem.Dell.oem import DellOem
+
+from aiopenapi3_redfish.Oem.Hpe.clinic import NoOemMessage as HpeNoOemMessage, Message as HpeMessage
 
 import aiopenapi3_redfish
 
@@ -62,7 +68,7 @@ def auth(config):
 
 
 def non_validating_https(*args, **kwargs) -> httpx.AsyncClient:
-    timeout = httpx.Timeout(timeout=10)
+    timeout = httpx.Timeout(timeout=60)
     return httpx.AsyncClient(*args, verify=False, timeout=timeout, **kwargs)
 
 
@@ -71,12 +77,9 @@ def extended_timeout(*args, **kwargs) -> httpx.AsyncClient:
     return httpx.AsyncClient(*args, verify=False, timeout=timeout, **kwargs)
 
 
-@pytest.fixture
-def log(caplog):
-    import logging
-
-    caplog.set_level(logging.INFO, logger="httpcore")
-    caplog.set_level(logging.INFO, logger="httpx")
+class Reduce(aiopenapi3.plugin.Document):
+    def __init__(self, *args, **kwargs):
+        super().__init__()
 
 
 @pytest_asyncio.fixture
@@ -91,11 +94,13 @@ async def client_(description_documents, target, auth, log):
             PayloadAnnotations(),
             NullableRefs(),
             ExposeResponseHeaders(),
-            #            OemDocumentGenerator(t, description_documents / "dell" / "iDRAC_7.00.60.00_A00"),
+            #            OemDocumentGenerator(t, description_documents / "dell" / "iDRAC_1.10.17.00_A00"),
             OemDocument(t),
             OemMessage(),
+            #            HpeNoOemMessage(),
+            #            HpeMessage(),
             Reduce(
-                # (re.compile(r".*"), ["get", "post", "put", "patch", "delete"]),
+                (re.compile(r".*"), ["get", "post", "put", "patch", "delete"]),
                 #
                 # ServiceRoot
                 #
@@ -192,7 +197,7 @@ async def client_(description_documents, target, auth, log):
                 # Systems
                 #
                 ("/redfish/v1/Systems", ["get"]),
-                ("/redfish/v1/Systems/{ComputerSystemId}", ["get"]),
+                ("/redfish/v1/Systems/{ComputerSystemId}", ["get", "patch"]),
                 ("/redfish/v1/Systems/{ComputerSystemId}/Bios", ["get", "patch"]),
                 ("/redfish/v1/Systems/{ComputerSystemId}/Bios/Settings", ["get", "patch"]),
                 (re.compile(r"^/redfish/v1/Systems/{ComputerSystemId}/Actions/ComputerSystem.\S+$"), ["post"]),
@@ -228,11 +233,19 @@ async def client_(description_documents, target, auth, log):
             ),
         ],
         locations=[
-            RedirectLoader(v := description_documents / "dell" / "iDRAC_7.00.60.00_A00"),
+            #            RedirectLoader((v := description_documents / "dell" / "iDRAC_7.00.60.00_A00")),
+            #            RedirectLoader((v := description_documents / "dell" / "iDRAC_7.10.30.00_A00")),
+            #            RedirectLoader((v := description_documents / "dell" / "iDRAC_7.10.75.00_A00")),
+            RedirectLoader(v := description_documents / "dell" / "iDRAC_7.20.10.5_A00"),
+            #            RedirectLoader((v := description_documents / "dell" / "iDRAC_1.10.17.00_A00")),
+            #            RedirectLoader((v := description_documents / "dell" / "iDRAC_1.20.60.50_A00")),
             RedirectLoader(v / "OpenAPI"),
-            RedirectLoader(description_documents / "swordfish-v1.2.4a"),
+            #            RedirectLoader(description_documents / "swordfish-v1.2.4a")
+            # RedirectLoader(description_documents / "swordfish-v1.2.6")
+            #            RedirectLoader(description_documents / "swordfish-v1.2.7"),
+            RedirectLoader(description_documents / "Swordfish" / "v1.2.7"),
         ],
-        cache=Path("/tmp/test_new.pickle"),
+        cache=Path("/tmp/test_new_dell.pickle"),
         session_factory=non_validating_https,
     )
     api = AsyncClient.createAPI(config)
@@ -251,7 +264,14 @@ async def client(client_):
 
 
 @pytest.mark.asyncio
-async def test_new_Client(client):
+async def test_new_Client(caplog, client):
+    import logging
+
+    logging.getLogger().setLevel(logging.INFO)
+    logging.getLogger("aiopenapi3").setLevel(logging.INFO)
+    logging.getLogger("aiopenapi3.loader").setLevel(logging.INFO)
+    logging.getLogger("aiopenapi3.OpenAPI").setLevel(logging.INFO)
+
     action = client.UpdateService.Actions["#UpdateService.SimpleUpdate"]
     action = client.UpdateService.Actions.Oem["DellUpdateService.v1_1_0#DellUpdateService.Install"]
 
@@ -540,7 +560,6 @@ async def test_Jobs(client, capsys):
     r = await client.Manager.Links.Oem.Dell.Jobs.refresh()
     async for job in r.list():
         print(job)
-        break
     else:
         raise ValueError("DellJob not found")
 

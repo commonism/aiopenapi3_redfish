@@ -16,3 +16,4 @@ def log(caplog):
 
     caplog.set_level(logging.INFO, logger="httpcore")
     caplog.set_level(logging.INFO, logger="httpx")
+    caplog.set_level(logging.INFO, logger="asyncio")

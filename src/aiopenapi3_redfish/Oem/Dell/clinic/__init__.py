@@ -46,12 +46,20 @@ class Message(aiopenapi3_redfish.clinic.Message):
 
     @Parsed("/redfish/v1/TaskService/Tasks/{TaskId}", method=["get"])
     def dr_Task_MessageId(self, ctx: "aiopenapi3.plugin.Message.Context") -> "aiopenapi3.plugin.Message.Context":
+        # 1.10.17.00
+        if ctx.parsed.get("Name") is None:
+            ctx.parsed["Name"] = ""
+
+        if "MessageArgs@AUTO_COUNT" in ctx.parsed.get("Oem", {}).get("Dell", {}):
+            del ctx.parsed["Oem"]["Dell"]["MessageArgs@AUTO_COUNT"]
+
         for i in ctx.parsed.get("Messages", []):
             if "MessageID" in i:  # v7.20.10.05
                 i["MessageId"] = i["MessageID"]
                 del i["MessageID"]
             if "MessageId" not in i:
                 i["MessageId"] = ""
+
         return ctx
 
     @Parsed("/redfish/v1/Systems/{ComputerSystemId}")
@@ -66,8 +74,8 @@ class Message(aiopenapi3_redfish.clinic.Message):
 
     @Parsed("/redfish/v1/Managers/{ManagerId}")
     def dr_Manager(self, ctx: "aiopenapi3.plugin.Message.Context") -> "aiopenapi3.plugin.Message.Context":
-        """iDRAC v4.32.10.00"""
         if ctx.request.vars.parameters["ManagerId"] == "iDRAC.Embedded.1":
+            """iDRAC v4.32.10.00"""
             if item := ctx.parsed.get("Oem", {}).get("Dell", {}).get("DelliDRACCard", {}):
                 for k, v in {"Id": "0", "Name": "yes"}.items():
                     if k not in item:
@@ -76,6 +84,10 @@ class Message(aiopenapi3_redfish.clinic.Message):
             t = "#DellOem.v1_3_0.DellOemLinks"
             if (w := ctx.parsed.get("Links", {}).get("Oem").get("Dell", {})).get("@odata.type", "") != t:
                 w["@odata.type"] = t
+
+            """v7.20.10.05"""
+            if "ServiceIdentification" in ctx.parsed:
+                del ctx.parsed["ServiceIdentification"]
 
         return ctx
 
@@ -92,6 +104,23 @@ class Message(aiopenapi3_redfish.clinic.Message):
             for kk in list(v.keys()):
                 if kk.startswith("@Redfish.") and kk.count("@") > 1:
                     del v[kk]
+        return ctx
+
+    @Parsed("/redfish/v1/Managers/{ManagerId}/Oem/Dell/Jobs/{DellJobId}")
+    def dr_DellJob(self, ctx: "aiopenapi3.plugin.Message.Context") -> "aiopenapi3.plugin.Message.Context":
+        for i in ["ActualRunningStopTime", "ActualRunningStartTime"]:
+            if not isinstance(ctx.parsed[i], str):
+                ctx.parsed[i] = str(ctx.parsed[i])
+        return ctx
+
+    @Parsed(
+        "/redfish/v1/Managers/{ManagerId}/Oem/Dell/DelliDRACCardService/Actions/DelliDRACCardService.ImportCertificate",
+        method=["post"],
+    )
+    def dr_ImportCertificate(self, ctx: "aiopenapi3.plugin.Message.Context") -> "aiopenapi3.plugin.Message.Context":
+        if "error" not in ctx.parsed:
+            p = {"error": {"code": "-", "message": "-", "@Message.ExtendedInfo": ctx.parsed["@Message.ExtendedInfo"]}}
+            ctx.parsed = p
         return ctx
 
 

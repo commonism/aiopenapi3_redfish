@@ -113,18 +113,20 @@ class AsyncLicenseService(AsyncResourceRoot):
 @Detour("#SessionService..SessionService")
 @Detour("#ServiceRoot..ServiceRoot/SessionService")
 class AsyncSessionService(AsyncResourceRoot):
-    async def createSession(self):
+    async def createSession(self, drop=True):
         auth = self._client.api._security["basicAuth"]
         req = self._client.api._[("/redfish/v1/SessionService/Sessions", "post")]
 
         data = {"UserName": auth[0], "Password": auth[1]}
         try:
-            self._client.api.authenticate(None)
+            if drop:
+                self._client.api.authenticate(None)
             headers, value = await req(data=data, return_headers=True)
             self._client.api.authenticate(**{"X-Auth": headers["X-Auth-Token"]})
             self._session = (headers, value)
         except KeyError:
-            self._client.api.authenticate(None, basicAuth=self._client.config.auth)
+            if drop:
+                self._client.api.authenticate(None, basicAuth=self._client.config.auth)
             return None
         return AsyncResourceRoot(self._client, value)
 
@@ -135,7 +137,7 @@ class AsyncSystem(AsyncResourceRoot):
     async def Reset(
         self,
         ResetType: Literal[
-            "ForceOff",
+            "ForceOn",
             "ForceOff",
             "ForceRestart",
             "GracefulRestart",
@@ -152,6 +154,28 @@ class AsyncSystem(AsyncResourceRoot):
         r = await action(data=data.model_dump(exclude_unset=True, by_alias=True))
         return r
 
+    async def cyclePower(self):
+        try:
+            await self.powerOff()
+        except Exception as e:
+            self._client.log.exception(e)
+        await self.powerOn()
+
+    async def powerOn(self):
+        return await self.togglePower("Off")
+
+    async def powerOff(self):
+        return await self.togglePower("On")
+
+    async def _pollState(self, state: str):
+        while self.PowerState != state:
+            await asyncio.sleep(15)
+            try:
+                await self.refresh()
+            except aiopenapi3.errors.ResponseSchemaError:
+                pass
+        return
+
     async def togglePower(self, powerState=None):
         if powerState is None:
             await self.refresh()
@@ -161,31 +185,46 @@ class AsyncSystem(AsyncResourceRoot):
 
         self._client.log.info(f"togglePower {powerState} -> {state}")
 
-        async def pollState():
-            while self.PowerState != state:
-                await asyncio.sleep(15)
-                try:
-                    await self.refresh()
-                except aiopenapi3.errors.ResponseSchemaError:
-                    pass
+        match state:
+            case "Off":
+                failed = []
+                for i in ["GracefulShutdown", "ForceOff"]:
+                    try:
+                        await self.Reset(i)
+                        try:
+                            await asyncio.wait_for(self._pollState(state), 600)
+                        except TimeoutError:
+                            raise
+                        except Exception:
+                            raise
+                        self._client.log.info(f"togglePower {i} succeded")
+                        break
 
-        if state == "Off":
-            if self.PowerState != "Off":
-                await self.Reset("GracefulShutdown")
-                try:
-                    await asyncio.wait_for(pollState(), 600)
-                except TimeoutError:
-                    await self.Reset("ForceOff")
-        elif state == "On":
-            try:
-                if self.PowerState == "Off":
-                    await self.Reset("On")
-                await asyncio.wait_for(pollState(), 600)
-            except TimeoutError:
-                await self.Reset("ForceRestart")
+                    except Exception as e:
+                        failed.append((i, e))
+                else:
+                    raise ValueError(f"Failed to power system ({failed})")
+                print("x")
 
+            case "On":
+                failed = []
+                for i in ["On", "ForceOn"]:
+                    try:
+                        await self.Reset(i)
+                        try:
+                            await asyncio.wait_for(self._pollState(state), 600)
+                        except TimeoutError:
+                            raise
+                        except Exception:
+                            raise
+                        self._client.log.info(f"togglePower {i} succeded")
+                        break
+                    except Exception as e:
+                        failed.append((i, e))
+                        continue
+                else:
+                    raise ValueError(f"Failed to power system ({failed})")
         await self.refresh()
-        assert self.PowerState == state
 
 
 @Detour("/redfish/v1/TaskService")
